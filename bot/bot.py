@@ -35,14 +35,12 @@ class Bot:
 
         user_id = update.effective_user.id
         chat_id = update.effective_chat.id
-        user_message = update.message.text
+        query = update.inline_query.query
 
         # Insert the message into the database
         self.db_session.execute(
             "INSERT INTO messages(chat_id, user_id, message_text, timestamp) VALUES (:id, :chat_id, :user_id, :message_text, NOW())",
-            {"id": chat_id, "chat_id": chat_id, "user_id": user_id, "message_text": user_message})
-
-        query = update.inline_query.query
+            {"id": chat_id, "chat_id": chat_id, "user_id": user_id, "message_text": query})
 
         if not query:  # empty query should not be handled
             return

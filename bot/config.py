@@ -1,7 +1,7 @@
 import os
 
 def load_config():
-    with open('../devo.conf', 'r') as conf_file:
+    with open('devo.conf', 'r') as conf_file:
         for line in conf_file:
             line = line.strip()
             if line:
