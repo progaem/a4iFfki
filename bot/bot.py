@@ -1,58 +1,96 @@
-import os
+#!/usr/bin/env python
+# pylint: disable=unused-argument
+# This program is dedicated to the public domain under the CC0 license.
+
+"""
+Don't forget to enable inline mode with @BotFather
+
+First, a few handler functions are defined. Then, those functions are passed to
+the Application and registered at their respective places.
+Then, the bot is started and runs until we press Ctrl-C on the command line.
+
+Usage:
+Basic inline bot example. Applies different text transformations.
+Press Ctrl-C on the command line or send a signal to the process to stop the
+bot.
+"""
 import logging
-import psycopg2
-import boto3
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from html import escape
+from uuid import uuid4
 
-class Bot:
-    def __init__(self):
-        self.updater = Updater(token=os.environ["TELEGRAM_BOT_TOKEN"], use_context=True)
-        self.dispatcher = self.updater.dispatcher
-        self.init_handlers()
-        self.db = psycopg2.connect(
-            host=os.environ["DB_HOST"],
-            user=os.environ["DB_USER"],
-            password=os.environ["DB_PASSWORD"],
-            database=os.environ["DB_NAME"]
-        )
-        self.s3 = boto3.client(
-            "s3",
-            endpoint_url=os.environ["S3_ENDPOINT"],
-            aws_access_key_id=os.environ["S3_ACCESS_KEY"],
-            aws_secret_access_key=os.environ["S3_SECRET_KEY"]
-        )
+from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
+from telegram.constants import ParseMode
+from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryHandler
 
-    def init_handlers(self):
-        self.dispatcher.add_handler(CommandHandler("start", self.start))
-        self.dispatcher.add_handler(MessageHandler(Filters.text, self.save_message))
-        self.dispatcher.add_handler(MessageHandler(Filters.photo, self.save_photo))
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+# set higher logging level for httpx to avoid all GET and POST requests being logged
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    def start(self, update: Update, context: CallbackContext):
-        update.message.reply_text("Hello! I'm your Telegram bot.")
+logger = logging.getLogger(__name__)
 
-    def save_message(self, update: Update, context: CallbackContext):
-        message_text = update.message.text
-        chat_id = update.message.chat_id
-        user_id = update.message.from_user.id
 
-        with self.db.cursor() as cursor:
-            cursor.execute(
-                "INSERT INTO messages (chat_id, user_id, message_text) VALUES (%s, %s, %s)",
-                (chat_id, user_id, message_text)
-            )
-        self.db.commit()
+# Define a few command handlers. These usually take the two arguments update and
+# context.
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /start is issued."""
+    await update.message.reply_text("Hi!")
 
-    def save_photo(self, update: Update, context: CallbackContext):
-        # Save the photo to S3
-        chat_id = update.message.chat_id
-        photo = update.message.photo[-1].get_file()
-        file_id = photo.file_id
-        file_path = file_id + ".jpg"
-        photo.download(file_path)
-        self.s3.upload_file(file_path, "your-s3-bucket", file_path)
-        os.remove(file_path)
 
-    def run(self):
-        self.updater.start_polling()
-        self.updater.idle()
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a message when the command /help is issued."""
+    await update.message.reply_text("Help!")
+
+
+async def inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle the inline query. This is run when you type: @botusername <query>"""
+    query = update.inline_query.query
+
+    if not query:  # empty query should not be handled
+        return
+
+    results = [
+        InlineQueryResultArticle(
+            id=str(uuid4()),
+            title="Caps",
+            input_message_content=InputTextMessageContent(query.upper()),
+        ),
+        InlineQueryResultArticle(
+            id=str(uuid4()),
+            title="Bold",
+            input_message_content=InputTextMessageContent(
+                f"<b>{escape(query)}</b>", parse_mode=ParseMode.HTML
+            ),
+        ),
+        InlineQueryResultArticle(
+            id=str(uuid4()),
+            title="Italic",
+            input_message_content=InputTextMessageContent(
+                f"<i>{escape(query)}</i>", parse_mode=ParseMode.HTML
+            ),
+        ),
+    ]
+
+    await update.inline_query.answer(results)
+
+
+def main() -> None:
+    """Run the bot."""
+    # Create the Application and pass it your bot's token.
+    application = Application.builder().token("6840244061:AAFYTUWypUfaNAfywSYUbNDMXSNsf6yOFKA").build()
+
+    # on different commands - answer in Telegram
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+
+    # on inline queries - show corresponding inline results
+    application.add_handler(InlineQueryHandler(inline_query))
+
+    # Run the bot until the user presses Ctrl-C
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+if __name__ == "__main__":
+    main()
