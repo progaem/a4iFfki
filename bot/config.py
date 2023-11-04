@@ -1,5 +1,4 @@
 import os
-import configparser
 
 def load_config():
     with open('../devo.conf', 'r') as conf_file:
