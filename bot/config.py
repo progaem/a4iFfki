@@ -7,6 +7,7 @@ def load_config():
 
     database_section = config['database']
     s3_section = config['s3']
+    telegram_section = config['telegram']
 
     os.environ['TELEGRAM_BOT_TOKEN'] = telegram_section['TELEGRAM_BOT_TOKEN']
 
