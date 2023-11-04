@@ -22,4 +22,4 @@ rad.json
 #Test results file
 TestResults.xml
 # Security
-devo.conf
+s3/

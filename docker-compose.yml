@@ -3,11 +3,7 @@ version: '3.2'
 services:
   postgres:
     image: postgres:latest
-    environment:
-      POSTGRES_HOST: localhost
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    env_file: devo.conf
     ports:
       - "5432:5432"
     volumes:
@@ -16,13 +12,11 @@ services:
     restart: always
 
   s3:
-    build:
-      context: ./s3
+    image: minio/minio
     ports:
       - "9000:9000"
-    environment:
-      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
-      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+    env_file: devo.conf
     volumes:
       - ./s3/data:/data
+    command: server /data
     restart: always
