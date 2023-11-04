@@ -3,6 +3,10 @@ import logging
 from html import escape
 from uuid import uuid4
 
+
+import sqlalchemy as sa
+from sqlalchemy.orm import Session
+
 from telegram import InlineQueryResultArticle, InputTextMessageContent, Update
 from telegram.constants import ParseMode
 from telegram.ext import Application, CommandHandler, ContextTypes, InlineQueryHandler
@@ -18,9 +22,9 @@ logger = logging.getLogger(__name__)
 
 
 class Bot:
-    def __init__(self, token, db_session):
+    def __init__(self, token, engine):
         self.application = Application.builder().token(token).build()
-        self.db_session = db_session
+        self.engine = engine
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Send a message when the command /start is issued."""
@@ -33,14 +37,16 @@ class Bot:
     async def inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle the inline query. This is run when you type: @botusername <query>"""
 
-        user_id = update.effective_user.id
-        chat_id = update.effective_chat.id
-        query = update.inline_query.query
+        user_id = str(update.effective_user.id)
+        chat_id = str(update.effective_user.id)
+        query = str(update.inline_query.query)
 
         # Insert the message into the database
-        self.db_session.execute(
-            "INSERT INTO messages(chat_id, user_id, message_text, timestamp) VALUES (:id, :chat_id, :user_id, :message_text, NOW())",
-            {"id": chat_id, "chat_id": chat_id, "user_id": user_id, "message_text": query})
+        session = Session(self.engine)
+        session.execute(sa.text(
+            f"INSERT INTO messages(chat_id, user_id, message_text, timestamp) VALUES ('{chat_id}', '{user_id}', '{query}', NOW())"))
+        session.commit()
+        session.close()
 
         if not query:  # empty query should not be handled
             return

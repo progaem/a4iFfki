@@ -1,5 +1,6 @@
 import logging
 from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 from sqlalchemy.ext.declarative import declarative_base
 from config import load_config
 from bot import Bot
@@ -21,12 +22,11 @@ if __name__ == "__main__":
     db_name = os.environ['POSTGRES_DB']
 
     # SQLAlchemy setup
-    engine = create_engine(f'postgresql://{db_user}:{db_password}@localhost/{db_name}')
+    engine = create_engine(f'postgresql://{db_user}:{db_password}@0.0.0.0/{db_name}')
     Base = declarative_base()
     Base.metadata.create_all(engine)
-    session = Session(engine)
 
     telegram_token = os.environ['TELEGRAM_BOT_TOKEN']
 
-    bot = Bot(session, telegram_token)
+    bot = Bot(telegram_token, engine)
     bot.run()
