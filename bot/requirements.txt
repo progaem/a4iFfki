@@ -1,0 +1,4 @@
+python-telegram-bot
+psycopg2-binary
+boto3
+configparser
