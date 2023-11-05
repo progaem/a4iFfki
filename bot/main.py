@@ -1,32 +1,21 @@
-import logging
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
-from sqlalchemy.ext.declarative import declarative_base
-from config import load_config
+from utils.utils import load_config, masked_print
 from bot import Bot
-import os
+from db.db_manager import DbManager
+from prompt.prompt_detector import PromptDetector
+from sticker.sticker_generator import StickerGenerator
 
-# Set up logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     # load all variables from devo.conf to environmental variables
     load_config()
 
-    telegram_token = os.environ['TELEGRAM_BOT_TOKEN']
+    # set up connection with db
+    db_manager = DbManager()
 
-    db_user = os.environ['POSTGRES_USER']
-    db_password = os.environ['POSTGRES_PASSWORD']
-    db_name = os.environ['POSTGRES_DB']
+    # create needed services
+    prompt_detector = PromptDetector()
+    sticker_generator = StickerGenerator()
 
-    # SQLAlchemy setup
-    engine = create_engine(f'postgresql://{db_user}:{db_password}@0.0.0.0/{db_name}')
-    Base = declarative_base()
-    Base.metadata.create_all(engine)
-
-    telegram_token = os.environ['TELEGRAM_BOT_TOKEN']
-
-    bot = Bot(telegram_token, engine)
+    # Run telegram bot
+    bot = Bot(db_manager, prompt_detector, sticker_generator)
     bot.run()
