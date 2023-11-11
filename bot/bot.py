@@ -24,10 +24,11 @@ logger = logging.getLogger(__name__)
 
 
 class Bot:
-    TELELGRAM_BOT_NAME = "a4iFfki"
     ACHIEVEMENT_EMOJI = "🥇"
 
     def __init__(self, db_manager: DbManager, prompt_detector: PromptDetector, sticker_generator: StickerGenerator):
+        self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
+
         telegram_token = os.environ['TELEGRAM_BOT_TOKEN']
         self.application = Application.builder().token(telegram_token).build()
 
@@ -175,7 +176,7 @@ class Bot:
         sticker_pack_name_to_generate = sticker_pack_name_length - len(prefix_name)
         sticker_pack_prefix = ''.join(
             random.choices(string.ascii_lowercase + string.ascii_uppercase + string.digits, k=sticker_pack_name_to_generate))
-        return f"{prefix_name}{sticker_pack_prefix}_by_{self.TELELGRAM_BOT_NAME}"
+        return f"{prefix_name}{sticker_pack_prefix}_by_{self.telgram_bot_name}"
 
     def run(self):
         self.application.add_handler(CommandHandler("start", self.start))
