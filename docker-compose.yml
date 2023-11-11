@@ -5,7 +5,7 @@ services:
     image: postgres:latest
     env_file: devo.conf
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
       - ./sql/postgresql.conf:/etc/postgresql/postgresql.conf
@@ -14,7 +14,7 @@ services:
   s3:
     image: minio/minio
     ports:
-      - "9000:9000"
+      - "127.0.0.1:9000:9000"
     env_file: devo.conf
     volumes:
       - ./s3/data:/data
