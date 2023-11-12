@@ -1,4 +1,4 @@
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import io
 import math
 import random
@@ -58,13 +58,11 @@ class StickerGenerator:
         """Generates sticker from prompt"""
         return self.generate_description_sticker("чето нагенереное нейросетью")
 
-    # TODO: implement
-    def generate_sticker_with_profile_picture(self, image: Image) -> tuple[str, bytes]:
+    def generate_sticker_with_profile_picture(self, image: bytes) -> tuple[str, bytes]:
         """Generates sticker from profile picture"""
-        # TODO: crop image to circle of certain size
-        #  https://note.nkmk.me/en/python-pillow-square-circle-thumbnail/
-        #  or this https://stackoverflow.com/questions/51486297/cropping-an-image-in-a-circular-way-using-python
-        image.resize(self.WIDTH, self.HEIGHT)
+        image = Image.open(io.BytesIO(image))
+        image = self.__expand2square(image, self.CIRCLE_COLOR).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
+        image = self.__mask_circle_transparent(image)
         return self.__save_and_convert_to_bytes(image)
 
     # TODO: make fancier
@@ -88,6 +86,31 @@ class StickerGenerator:
         with open(file_path, "wb") as binary_file:
             binary_file.write(byte_image)
         return file_path, byte_image
+
+    @staticmethod
+    def __expand2square(image: Image, background_color) -> Image:
+        width, height = image.size
+        if width == height:
+            return image
+        elif width > height:
+            result = Image.new(image.mode, (width, width), background_color)
+            result.paste(image, (0, (width - height) // 2))
+            return result
+        else:
+            result = Image.new(image.mode, (height, height), background_color)
+            result.paste(image, ((height - width) // 2, 0))
+            return result
+
+    @staticmethod
+    def __mask_circle_transparent(image: Image) -> Image:
+        mask = Image.new("L", image.size, 0)
+        draw = ImageDraw.Draw(mask)
+        draw.ellipse((0, 0, image.size[0], image.size[1]), fill=255)
+
+        result = image.copy()
+        result.putalpha(mask)
+
+        return result
 
     def __generate_sticker_of_color(self, color) -> Image:
         image = Image.new("RGBA", (self.WIDTH, self.HEIGHT), self.BACKGROUND_COLOR)

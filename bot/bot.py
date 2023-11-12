@@ -5,6 +5,7 @@ import random
 import string
 
 from telegram import Update, InputSticker
+from telegram._bot import BT
 from telegram.constants import StickerFormat
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext
 import telegram.ext.filters as filters
@@ -65,13 +66,14 @@ class Bot:
         prompt = self.prompt_detector.detect(message_text)
         if not prompt:
             await update.message.reply_text(
-                f'User {user_id} in {chat_id} chat mentioned \'выдаю ачивку\' to {replied_user_id}! But prompt was not identified :C')
+                f'User {user_id} in {chat_id} chat mentioned \'выдаю ачивку\' to {replied_user_id}! But prompt was not identified :(')
 
         self.db_manager.save_prompt_message(chat_id, user_id, replied_user_id, message_text, prompt)
 
         achievement_sticker = self.sticker_generator.generate_sticker_from_prompt(prompt)
-        user_description_sticker = self.sticker_generator.generate_description_sticker(prompt)
         chat_description_sticker = self.sticker_generator.generate_group_chat_description_sticker(prompt, 1)
+        user_profile_sticker = await self.__create_profile_sticker(bot, replied_user_id, replied_user_username)
+        user_description_sticker = self.sticker_generator.generate_description_sticker(prompt)
 
         # TODO: take sticker admin user id
         # TODO: paste here your username if you have premium account
@@ -241,8 +243,20 @@ class Bot:
         #  (type: achievement/description/profile/profile_description/empty)
         pass
 
+    async def __create_profile_sticker(self, bot: BT, replied_user_id: int, replied_user_username: str) -> tuple[str, bytes]:
+        # Note: Method not located in sticker_generator since need two additional API calls
+        profile_photos = await bot.get_user_profile_photos(replied_user_id, limit=1)
+        # In case profile doesn't have any photos or the user doesn't allow ALL other users to see their profile photos - generate description instead
+        if not profile_photos.photos:
+            return self.sticker_generator.generate_description_sticker(f"@{replied_user_username}'s achievements sticker set")
+        profile_photo_id = profile_photos.photos[0][0].file_id
+
+        prepared_for_download_photo = await bot.get_file(profile_photo_id)
+        photo = await prepared_for_download_photo.download_as_bytearray()
+        return self.sticker_generator.generate_sticker_with_profile_picture(bytes(photo))
+
     def __create_random_sticker_pack_name(self, prefix_name: str):
-        # As per telegram API documentation https://docs.python-telegram-bot.org/en/v20.6/telegram.bot.html#telegram.Bot.create_new_sticker_set:
+        # Note: As per telegram API documentation https://docs.python-telegram-bot.org/en/v20.6/telegram.bot.html#telegram.Bot.create_new_sticker_set:
         # Stickerpack name can contain only english letters, digits and underscores.
         # Must begin with a letter, can’t contain consecutive underscores and must end in “_by_<bot username>”. <bot_username> is case insensitive.
         # 1 - 64 characters.
