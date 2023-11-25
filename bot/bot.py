@@ -241,7 +241,135 @@ class Bot:
         # TODO: get the persons sticker pack by name
         #  - update (sticker_id - type - index_in_sticker_pack - file_path - user_id - group_id - sticker_pack_name ) table
         #  (type: achievement/description/profile/profile_description/empty)
-        pass
+        """Adds new achievement stickers to the chat sticker pack and returns the file_id of the achievement sticker"""
+        # since the sticker pack was just created, the last achievement id is 0
+        last_achievement_index = 0
+        stickers_to_add = dict()
+        sticker_set_name = ""
+
+        bot = context.bot
+        (user_stickers, session) = self.db_manager.get_user_sticker_set(chat_id, user_id)
+        logger.info(f"User stickers found in {chat_name} for {user_name}: {user_stickers}")
+        # if user sticker pack is not created - create it with all the stickers we want to create
+        if not user_stickers:
+            # define stickers to create: achievement, 4 empty stickers, description, 4 empty stickers
+            logger.info(f"User sticker set for chat {chat_name} and user {user_name} was not initialized. Trying to initialize it...")
+            empty_sticker = self.sticker_generator.get_empty_sticker()
+            stickers_to_add = {
+                0: achievement_sticker,
+                1: empty_sticker,
+                2: empty_sticker,
+                3: empty_sticker,
+                4: empty_sticker,
+                5: user_description_sticker,
+                6: empty_sticker,
+                7: empty_sticker,
+                8: empty_sticker,
+                9: empty_sticker
+            }
+            created_stickers = list(map(lambda sticker: InputSticker(sticker[1], [self.ACHIEVEMENT_EMOJI]), stickers_to_add.values()))
+
+            # create a new sticker pack with previously defined stickers
+            user_sticker_set_name = self.__create_random_sticker_pack_name("user")
+            sticker_pack_title = f"Achievements for '{user_name}"[:62] + "'"
+            await bot.create_new_sticker_set(user_id, user_sticker_set_name, sticker_pack_title, created_stickers, StickerFormat.STATIC)
+            logger.info(f"New sticker set was created under name {user_sticker_set_name} and assigned owner {user_id}")
+        else:
+            user_sticker_set_name = user_stickers[0].chat_sticker_pack_name
+            last_achievement_index = len(list(filter(lambda sticker: sticker.type == "achievement", user_stickers))) - 1
+            logger.info(
+                f"Sticker set was created under name {user_sticker_set_name} already existed, the index of the last achievement sticker is {last_achievement_index}")
+            # if number of achievements is % 5, we need to create new empty stickers
+            if last_achievement_index % 5 == 4:
+                logger.info(f"Number of achievement stickers in the {user_sticker_set_name} sticker set is a multiple of 5. Trying to 10 stickers to the sticker set (including empty ones)")
+                empty_sticker = self.sticker_generator.get_empty_sticker()
+                last_sticker_index = last_achievement_index + 5
+                last_achievement_index = last_achievement_index + 5
+                stickers_to_add = {
+                    last_sticker_index + 1: achievement_sticker,
+                    last_sticker_index + 2: empty_sticker,
+                    last_sticker_index + 3: empty_sticker,
+                    last_sticker_index + 4: empty_sticker,
+                    last_sticker_index + 5: empty_sticker,
+                    last_sticker_index + 6: user_description_sticker,
+                    last_sticker_index + 7: empty_sticker,
+                    last_sticker_index + 8: empty_sticker,
+                    last_sticker_index + 9: empty_sticker,
+                    last_sticker_index + 10: empty_sticker
+                }
+
+                # add stickers to the stickers
+                for i, sticker in stickers_to_add.items():
+                    await bot.add_sticker_to_set(user_id, user_sticker_set_name,  InputSticker(sticker[1], [self.ACHIEVEMENT_EMOJI]))
+                    logger.info(f"Successfully added sticker number {i} to the sticker set {user_sticker_set_name} located at the path {sticker[0]}")
+            else:
+                logger.info(
+                    f"Number of achievement stickers in the {user_sticker_set_name} sticker set is NOT a multiple of 5 (It's {last_achievement_index}). Trying to add new stickers in place of others")
+                stickers_to_add = {
+                    last_achievement_index + 1: achievement_sticker,
+                    last_achievement_index + 6: user_description_sticker
+                }
+                # delete two empty stickers next to last achievement and description stickers (the last sticker deleted first so indices of earlier stickers won't change)
+                await bot.delete_sticker_from_set(user_stickers[last_achievement_index + 6].file_id)
+                await bot.delete_sticker_from_set(user_stickers[last_achievement_index + 1].file_id)
+                logger.info(f"Two empty stickers in the {user_sticker_set_name} sticker set were deleted")
+
+                # add new stickers to the sticker set
+                await bot.add_sticker_to_set(user_id, user_sticker_set_name,
+                                             InputSticker(achievement_sticker[1], [self.ACHIEVEMENT_EMOJI]))
+                await bot.add_sticker_to_set(user_id, user_sticker_set_name,
+                                             InputSticker(user_description_sticker[1], [self.ACHIEVEMENT_EMOJI]))
+                logger.info(f"Two new stickers (located at {achievement_sticker[0]} and {user_description_sticker[0]}) were added at the end of {user_sticker_set_name} sticker set")
+
+                # set the achievement stickers next to the previous ones (the first sticker should be added first)
+                sticker_set = await bot.get_sticker_set(user_sticker_set_name)
+                achievement_sticker_id = sticker_set.stickers[-2].file_id
+                chat_description_sticker_id = sticker_set.stickers[-1].file_id
+                await bot.set_sticker_position_in_set(achievement_sticker_id, last_achievement_index + 1)
+                await bot.set_sticker_position_in_set(chat_description_sticker_id, last_achievement_index + 6)
+                logger.info(f"New stickers were set at the positions {last_achievement_index + 1} and {last_achievement_index + 6} in the {chat_sticker_set_name} sticker set")
+
+            last_achievement_index = last_achievement_index + 1
+
+        # get the updated sticker set from telegram (needed to get file_id and file_unique_id for each sticker)
+        sticker_set = await bot.get_sticker_set(user_sticker_set_name)
+        logger.info(f"Fetching the newly created {user_sticker_set_name} sticker set")
+
+        # update stickers in the database
+        chat_stickers_to_update = []
+        for sticker_index, sticker_file in stickers_to_add.items():
+            sticker = sticker_set.stickers[sticker_index]
+            sticker_type = "empty"
+            times_achieved = None
+            # each first line of stickers that comes before last achievement are achievements
+            if sticker_index % 10 < 5 and sticker_index <= last_achievement_index:
+                sticker_type = "achievement"
+                times_achieved = 1
+            # each second line of stickers that comes before last achievement's description are descriptions
+            elif sticker_index % 10 >= 5 and sticker_index <= last_achievement_index + 5:
+                sticker_type = "description"
+            chat_stickers_to_update.append(
+                ChatSticker(
+                    file_id=sticker.file_id,
+                    file_unique_id=sticker.file_unique_id,
+                    type=sticker_type,
+                    times_achieved=times_achieved,
+                    index_in_sticker_pack=sticker_index,
+                    chat_id=chat_id,
+                    chat_sticker_pack_name=user_sticker_set_name,
+                    sticker_pack_owner_id=user_id,
+                    file_path=sticker_file[0]
+                )
+            )
+
+        # We need to close previously opened session (look at DbManager#get_chat_sticker_set implementation for more details)
+        session.commit()
+        session.close()
+
+        self.db_manager.create_chat_stickers_or_update_if_exist(chat_stickers_to_update)
+        logger.info(f"Newly created stickers {list(map(lambda sticker: sticker[0], stickers_to_add.values()))} were added to the {chat_sticker_set_name} sticker set")
+
+        return sticker_set.stickers[last_achievement_index].file_id
 
     async def __create_profile_sticker(self, bot: BT, replied_user_id: int, replied_user_username: str) -> tuple[str, bytes]:
         # Note: Method not located in sticker_generator since need two additional API calls

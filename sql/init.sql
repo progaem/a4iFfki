@@ -40,8 +40,8 @@ comment on column chat_achievements.file_path is 'Path to the sticker file sourc
 
 CREATE TABLE user_achievements (
     id SERIAL PRIMARY KEY,
-    file_id BIGINT,
-    file_unique_id BIGINT,
+    file_id TEXT,
+    file_unique_id TEXT,
     type VARCHAR NOT NULL,
     index_in_sticker_pack INT NOT NULL,
     user_id BIGINT NOT NULL,
