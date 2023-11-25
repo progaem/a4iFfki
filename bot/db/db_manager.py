@@ -151,7 +151,7 @@ class DbManager:
                 existing_sticker.file_id = sticker.file_id
                 existing_sticker.file_unique_id = sticker.file_unique_id
                 existing_sticker.type = sticker.type
-                existing_sticker.chat_sticker_pack_name = sticker.chat_sticker_pack_name
+                existing_sticker.user_sticker_pack_name = sticker.user_sticker_pack_name
                 existing_sticker.file_path = sticker.file_path
                 session.merge(existing_sticker)
             else:

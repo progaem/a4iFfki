@@ -11,7 +11,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackCo
 import telegram.ext.filters as filters
 
 from utils.utils import masked_print
-from db.db_manager import DbManager, ChatSticker
+from db.db_manager import DbManager, ChatSticker, UserSticker
 from prompt.prompt_detector import PromptDetector
 from sticker.sticker_generator import StickerGenerator
 
@@ -77,14 +77,15 @@ class Bot:
 
         # TODO: take sticker admin user id
         # TODO: paste here your username if you have premium account
-        stickers_owner_id = 249427415
+        stickers_owner_id = 17201898
         file_id = await self.add_chat_stickers(stickers_owner_id, chat_id, chat_name, achievement_sticker, chat_description_sticker, context)
 
         await bot.send_sticker(chat_id, file_id)
 
         logger.info("Starting to add new stickers to user sticker set")
-        await self.add_user_stickers(replied_user_id, replied_user_username, chat_id, chat_name, achievement_sticker, user_description_sticker, context)
+        stickerpack_name = await self.add_user_stickers(replied_user_id, replied_user_username, chat_id, chat_name, achievement_sticker, user_description_sticker, context)
 
+        await update.message.reply_text(f'Personal achievements pack: https://t.me/addstickers/{stickerpack_name}')
         # TODO: reply with recently created user sticker
         await update.message.reply_text(
             f'User {user_id} in {chat_id} chat mentioned \'выдаю ачивку\' to {replied_user_id}! Possible prompt: {prompt}')
@@ -222,7 +223,7 @@ class Bot:
         session.commit()
         session.close()
 
-        self.db_manager.create_stickers_or_update_if_exist(chat_stickers_to_update)
+        self.db_manager.create_chat_stickers_or_update_if_exist(chat_stickers_to_update)
         logger.info(f"Newly created stickers {list(map(lambda sticker: sticker[0], stickers_to_add.values()))} were added to the {chat_sticker_set_name} sticker set")
 
         return sticker_set.stickers[last_achievement_index].file_id
@@ -336,7 +337,7 @@ class Bot:
         logger.info(f"Fetching the newly created {user_sticker_set_name} sticker set")
 
         # update stickers in the database
-        chat_stickers_to_update = []
+        user_stickers_to_update = []
         for sticker_index, sticker_file in stickers_to_add.items():
             sticker = sticker_set.stickers[sticker_index]
             sticker_type = "empty"
@@ -348,16 +349,15 @@ class Bot:
             # each second line of stickers that comes before last achievement's description are descriptions
             elif sticker_index % 10 >= 5 and sticker_index <= last_achievement_index + 5:
                 sticker_type = "description"
-            chat_stickers_to_update.append(
-                ChatSticker(
+            user_stickers_to_update.append(
+                UserSticker(
                     file_id=sticker.file_id,
                     file_unique_id=sticker.file_unique_id,
                     type=sticker_type,
-                    times_achieved=times_achieved,
                     index_in_sticker_pack=sticker_index,
+                    user_id=user_id,
                     chat_id=chat_id,
-                    chat_sticker_pack_name=user_sticker_set_name,
-                    sticker_pack_owner_id=user_id,
+                    user_sticker_pack_name=user_sticker_set_name,
                     file_path=sticker_file[0]
                 )
             )
@@ -366,10 +366,10 @@ class Bot:
         session.commit()
         session.close()
 
-        self.db_manager.create_chat_stickers_or_update_if_exist(chat_stickers_to_update)
-        logger.info(f"Newly created stickers {list(map(lambda sticker: sticker[0], stickers_to_add.values()))} were added to the {chat_sticker_set_name} sticker set")
+        self.db_manager.create_user_stickers_or_update_if_exist(user_stickers_to_update)
+        logger.info(f"Newly created stickers {list(map(lambda sticker: sticker[0], stickers_to_add.values()))} were added to the {user_sticker_set_name} sticker set")
 
-        return sticker_set.stickers[last_achievement_index].file_id
+        return user_sticker_set_name
 
     async def __create_profile_sticker(self, bot: BT, replied_user_id: int, replied_user_username: str) -> tuple[str, bytes]:
         # Note: Method not located in sticker_generator since need two additional API calls
