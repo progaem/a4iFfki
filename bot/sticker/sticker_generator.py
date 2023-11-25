@@ -1,8 +1,6 @@
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+from PIL import Image, ImageDraw, ImageFont
 import io
 import math
-import random
-import string
 
 
 class StickerGenerator:
@@ -18,19 +16,18 @@ class StickerGenerator:
     STICKER_ARC_MARGIN = 0.95  # Margin for arc that wraps group sticker
     STICKER_ARC_WIDTH = 10  # Width of the arc
     FONT_SIZE = 30  # TODO: make a range
-    FONT_PATH = "data/resources/GothamProBlack.ttf"
+    FONT_PATH = "resources/GothamProBlack.ttf"
     # With default font size {FONT_SIZE}, the maximum characters that would fit into line without new spaces
     MAX_SYMBOLS_IN_LINE = 25
-    EMPTY_STICKER_PATH = "data/stickers/empty.png"
+    EMPTY_STICKER_PATH = "sticker_files/empty.png"
 
-    def __init__(self):
-        pass
+    def __init__(self, sticker_file_manager):
+        self.sticker_file_manager = sticker_file_manager
 
     def get_empty_sticker(self) -> tuple[str, bytes]:
         """Gets already generated empty achievement sticker"""
         try:
-            with open(self.EMPTY_STICKER_PATH, 'rb') as file:
-                file_bytes = file.read()
+            file_bytes = self.sticker_file_manager.get_bytes_from_path(self.EMPTY_STICKER_PATH)
             return self.EMPTY_STICKER_PATH, file_bytes
         except FileNotFoundError:
             return self.__generate_empty_sticker()
@@ -38,20 +35,20 @@ class StickerGenerator:
     def __generate_empty_sticker(self) -> tuple[str, bytes]:
         """Generates empty achievement sticker"""
         image = self.__generate_sticker_of_color(self.DEFAULT_CIRCLE_COLOR)
-        return self.__save_and_convert_to_bytes(image, self.EMPTY_STICKER_PATH)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image, self.EMPTY_STICKER_PATH)
 
     def generate_description_sticker(self, description: str) -> tuple[str, bytes]:
         """Generates description sticker for achievement sticker"""
         image = self.__generate_sticker_of_color(self.CIRCLE_COLOR)
         image = self.__add_text_on_sticker(image, description, 0)
-        return self.__save_and_convert_to_bytes(image)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     def generate_group_chat_description_sticker(self, description: str, number_of_people_achieved: int) -> tuple[str, bytes]:
         """Generates description sticker for achievement sticker with number of people achieved it"""
         image = self.__generate_sticker_of_gradient(self.INNER_GROUP_STICKER_COLOR, self.OUTER_GROUP_STICKER_COLOR)
         image = self.__add_number_with_arc_on_sticker(image, number_of_people_achieved)
         image = self.__add_text_on_sticker(image, description, 2 * (1 - self.STICKER_ARC_MARGIN))
-        return self.__save_and_convert_to_bytes(image)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     # TODO: implement
     def generate_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
@@ -63,7 +60,7 @@ class StickerGenerator:
         image = Image.open(io.BytesIO(image))
         image = self.__expand2square(image, self.CIRCLE_COLOR).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
         image = self.__mask_circle_transparent(image)
-        return self.__save_and_convert_to_bytes(image)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     # TODO: make fancier
     def generate_sticker_with_profile_description(self, profile_name: str, group_name: str) -> tuple[str, bytes]:
@@ -71,21 +68,6 @@ class StickerGenerator:
         description = f"Это стикерпак ачивок @{profile_name} для группы {group_name}"
         # TODO: make number the place in total amount of achievements in group
         return self.generate_group_chat_description_sticker(description, 1)
-
-    @staticmethod
-    def __save_and_convert_to_bytes(image: Image, file_path: str = "") -> tuple[str, bytes]:
-        """Conversion to bytes"""
-        # code taken from https://jdhao.github.io/2019/07/06/python_opencv_pil_image_to_bytes/
-        buf = io.BytesIO()
-        image.save(buf, format='PNG')
-        byte_image = buf.getvalue()
-
-        if not file_path:
-            file_name = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-            file_path = f"data/stickers/{file_name}.png"
-        with open(file_path, "wb") as binary_file:
-            binary_file.write(byte_image)
-        return file_path, byte_image
 
     @staticmethod
     def __expand2square(image: Image, background_color) -> Image:
