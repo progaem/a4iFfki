@@ -1,6 +1,7 @@
 from PIL import Image, ImageDraw, ImageFont
 import io
 import math
+import random
 
 
 class StickerGenerator:
@@ -39,7 +40,12 @@ class StickerGenerator:
 
     def generate_description_sticker(self, description: str) -> tuple[str, bytes]:
         """Generates description sticker for achievement sticker"""
-        image = self.__generate_sticker_of_color(self.CIRCLE_COLOR)
+        # Choosing pleasant color palette
+        red_color = random.randint(40, 170)
+        green_color = random.randint(40, 170)
+        blue_color = random.randint(40, 170)
+
+        image = self.__generate_sticker_of_gradient((red_color, green_color, blue_color), self.OUTER_GROUP_STICKER_COLOR)
         image = self.__add_text_on_sticker(image, description, 0)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
@@ -53,7 +59,9 @@ class StickerGenerator:
     # TODO: implement
     def generate_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
         """Generates sticker from prompt"""
-        return self.generate_description_sticker("чето нагенереное нейросетью")
+        image = self.__generate_sticker_of_random_color()
+        image = self.__add_text_on_sticker(image, f"картинка про {prompt}", 0)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     def generate_sticker_with_profile_picture(self, image: bytes) -> tuple[str, bytes]:
         """Generates sticker from profile picture"""
@@ -61,11 +69,16 @@ class StickerGenerator:
         image = self.__expand2square(image, self.CIRCLE_COLOR).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
         image = self.__mask_circle_transparent(image)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
-
-    # TODO: make fancier
-    def generate_sticker_with_profile_description(self, profile_name: str, group_name: str) -> tuple[str, bytes]:
-        """Generates profile description sticker from profile name and group name"""
-        description = f"Это стикерпак ачивок @{profile_name} для группы {group_name}"
+    
+    def generate_no_profile_picture_sticker(self, username: str) -> tuple[str, bytes]:
+        """Generates sticker from username"""
+        image = self.__generate_sticker_of_random_color()
+        image = self.__add_text_on_sticker(image, username, 0)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image)
+    
+    def generate_user_stickerset_description_sticker(self, username: str, chat_name: str) -> tuple[str, bytes]:
+        """Generates description sticker for achievement sticker"""
+        description = f"Stickerset of @{username}'s achievements for chat \'{chat_name}\'"
         # TODO: make number the place in total amount of achievements in group
         return self.generate_group_chat_description_sticker(description, 1)
 
@@ -93,6 +106,14 @@ class StickerGenerator:
         result.putalpha(mask)
 
         return result
+    
+    def __generate_sticker_of_random_color(self) -> Image:
+        # Choosing pleasant color palette
+        red_color = random.randint(80, 200)
+        green_color = random.randint(80, 200)
+        blue_color = random.randint(80, 200)
+        
+        return self.__generate_sticker_of_color((red_color, green_color, blue_color, 255))
 
     def __generate_sticker_of_color(self, color) -> Image:
         image = Image.new("RGBA", (self.WIDTH, self.HEIGHT), self.BACKGROUND_COLOR)

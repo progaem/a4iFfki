@@ -21,10 +21,10 @@ CREATE TABLE chat_achievements (
     file_unique_id TEXT,
     type VARCHAR NOT NULL,
     times_achieved INT,
-    index_in_sticker_pack INT NOT NULL,
+    index_in_sticker_set INT NOT NULL,
     chat_id BIGINT NOT NULL,
-    chat_sticker_pack_name TEXT NOT NULL,
-    sticker_pack_owner_id INT NOT NULL,
+    sticker_set_name TEXT NOT NULL,
+    sticker_set_owner_id INT NOT NULL,
     file_path TEXT NOT NULL
 );
 
@@ -32,28 +32,28 @@ comment on column chat_achievements.file_id is 'Telegram sticker id (not a prima
 comment on column chat_achievements.file_unique_id is 'Telegram internal file id';
 comment on column chat_achievements.type is 'achievement, description or empty';
 comment on column chat_achievements.times_achieved is 'Number of times this achievement was taken (NULL if stickers type is not achievement)';
-comment on column chat_achievements.index_in_sticker_pack is 'The index of sticker in sticker pack';
+comment on column chat_achievements.index_in_sticker_set is 'The index of sticker in sticker pack';
 comment on column chat_achievements.chat_id is 'The chat ID';
-comment on column chat_achievements.chat_sticker_pack_name is 'The name of the sticker pack';
-comment on column chat_achievements.sticker_pack_owner_id is 'The user ID of owner of sticker pack';
+comment on column chat_achievements.sticker_set_name is 'The name of the sticker pack';
+comment on column chat_achievements.sticker_set_owner_id is 'The user ID of owner of sticker pack';
 comment on column chat_achievements.file_path is 'Path to the sticker file source';
 
 CREATE TABLE user_achievements (
     id SERIAL PRIMARY KEY,
-    file_id BIGINT,
-    file_unique_id BIGINT,
+    file_id TEXT,
+    file_unique_id TEXT,
     type VARCHAR NOT NULL,
-    index_in_sticker_pack INT NOT NULL,
+    index_in_sticker_set INT NOT NULL,
     user_id BIGINT NOT NULL,
     chat_id BIGINT NOT NULL,
-    user_sticker_pack_name TEXT NOT NULL,
+    sticker_set_name TEXT NOT NULL,
     file_path TEXT NOT NULL
 );
 
 comment on column user_achievements.file_id is 'Telegram sticker id (not a primary since two different stickers might have the same id in telegram)';
 comment on column user_achievements.type is 'achievement, description, profile, profile_description or empty';
-comment on column user_achievements.index_in_sticker_pack is 'The index of sticker in sticker pack';
+comment on column user_achievements.index_in_sticker_set is 'The index of sticker in sticker pack';
 comment on column user_achievements.user_id is 'The user ID';
 comment on column user_achievements.chat_id is 'The chat ID';
-comment on column user_achievements.user_sticker_pack_name is 'The name of the sticker pack';
+comment on column user_achievements.sticker_set_name is 'The name of the sticker pack';
 comment on column user_achievements.file_path is 'Path to the sticker file source';
