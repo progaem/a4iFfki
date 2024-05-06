@@ -19,7 +19,8 @@ class ChatSticker(Base):
     file_id = Column(Text, comment="Telegram sticker id (not a primary since two different stickers might have the same id in telegram)")
     file_unique_id = Column(Text, comment="Telegram internal file id")
     type = Column(String, nullable=False, comment="(\'achievement\', \'description\' or \'empty\')")
-    times_achieved = Column(Integer, comment="Number of times this achievement was taken (NULL if stickers type is not achievement)")
+    engraving_text = Column(Text, comment="Engraving on a sticker (empty for every sticker not of description type)")
+    times_achieved = Column(Integer, comment="Number of times this achievement was taken (NULL if stickers type is not description)")
     index_in_sticker_set = Column(Integer, nullable=False, comment="The index of sticker in sticker set")
     chat_id = Column(BigInteger, nullable=False, comment="The chat ID")
     sticker_set_name = Column(Text, nullable=False, comment="The name of the sticker set")
@@ -36,6 +37,7 @@ class UserSticker(Base):
     file_id = Column(Text, comment="Telegram sticker id (not a primary since two different stickers might have the same id in telegram)")
     file_unique_id = Column(Text, comment="Telegram internal file id")
     type = Column(String, nullable=False, comment="(\'achievement\', \'description\', \'profile\', \'profile_description\' or \'empty\')")
+    engraving_text = Column(Text, comment="Engraving on a sticker (empty for every sticker not of description type)")
     index_in_sticker_set = Column(Integer, nullable=False, comment="The index of sticker in sticker set")
     user_id = Column(BigInteger, nullable=False, comment="The user ID")
     chat_id = Column(BigInteger, nullable=False, comment="The chat ID")
@@ -91,12 +93,26 @@ class DbManager:
 
         # We are forced to return session from here to allow manipulations over UserSticker objects
         return result, session
-
-    def get_chat_sticker_pack_name(self, chat_id: int) -> str:
+    
+    def get_chat_sticker_set_name(self, chat_id: int) -> str:
         session = Session(self.engine)
         result = (
             session.query(ChatSticker.sticker_set_name)
                 .filter(ChatSticker.chat_id == chat_id)
+                .limit(1)
+                .scalar()
+        )
+        session.commit()
+        session.close()
+
+        return result
+
+    def get_user_sticker_set_name(self, user_id: int, chat_id: int) -> str:
+        session = Session(self.engine)
+        result = (
+            session.query(UserSticker.sticker_set_name)
+                .filter(UserSticker.user_id == user_id)
+                .filter(UserSticker.chat_id == chat_id)
                 .limit(1)
                 .scalar()
         )
@@ -122,6 +138,7 @@ class DbManager:
                 existing_sticker.file_id = sticker.file_id
                 existing_sticker.file_unique_id = sticker.file_unique_id
                 existing_sticker.type = sticker.type
+                existing_sticker.engraving_text = sticker.engraving_text
                 existing_sticker.times_achieved = sticker.times_achieved
                 existing_sticker.sticker_set_name = sticker.sticker_set_name
                 existing_sticker.sticker_set_owner_id = sticker.sticker_set_owner_id
@@ -151,6 +168,7 @@ class DbManager:
                 existing_sticker.file_id = sticker.file_id
                 existing_sticker.file_unique_id = sticker.file_unique_id
                 existing_sticker.type = sticker.type
+                existing_sticker.engraving_text = sticker.engraving_text
                 existing_sticker.sticker_set_name = sticker.sticker_set_name
                 existing_sticker.file_path = sticker.file_path
                 session.merge(existing_sticker)

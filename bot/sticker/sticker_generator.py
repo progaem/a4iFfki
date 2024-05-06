@@ -41,9 +41,9 @@ class StickerGenerator:
     def generate_description_sticker(self, description: str) -> tuple[str, bytes]:
         """Generates description sticker for achievement sticker"""
         # Choosing pleasant color palette
-        red_color = random.randint(40, 170)
-        green_color = random.randint(40, 170)
-        blue_color = random.randint(40, 170)
+        red_color = random.randint(60, 170)
+        green_color = random.randint(60, 170)
+        blue_color = random.randint(60, 170)
 
         image = self.__generate_sticker_of_gradient((red_color, green_color, blue_color), self.OUTER_GROUP_STICKER_COLOR)
         image = self.__add_text_on_sticker(image, description, 0)

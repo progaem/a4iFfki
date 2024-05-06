@@ -5,6 +5,7 @@ import random
 import string
 
 from functools import wraps
+from urllib import response
 
 from telegram import Update, InputSticker
 from telegram._bot import BT
@@ -81,9 +82,31 @@ class Bot:
     async def help_command(self, update: Update, context: CallbackContext) -> None:
         """Send a FAQ with short description of commands when the command /help is issued."""
         await update.message.reply_text("TODO: write meaningful description of the bot")
+    
+    async def show_sticker_set(self, update: Update, context: CallbackContext) -> None:
+        """Send a link to sticker set of the user"""
+        chat_id = update.message.chat_id
+        chat_name = update.effective_chat.effective_name
+        user_id = update.message.from_user.id
+        username = update.message.from_user.username
+
+        chat_stickerset_name = self.db_manager.get_chat_sticker_set_name(chat_id)
+        user_stickerset_name = self.db_manager.get_user_sticker_set_name(user_id, chat_id)
+
+        response = ""
+        if chat_stickerset_name:
+            response = f'Link to \'{chat_name}\'achievements: https://t.me/addstickers/{chat_stickerset_name}\n'
+            if user_stickerset_name:
+                response += f'Link to @{username}\'s achievements in the chat \'{chat_name}\': https://t.me/addstickers/{user_stickerset_name}'
+            else:
+                response += f'@{username} doesn\'t have any achievements in the chat \'{chat_name}\''
+        else:
+            response = f'Nobody in the chat \'{chat_name}\' has received an achievement yet'
+
+        await update.message.reply_text(response)
 
     async def on_give(self, update: Update, context: CallbackContext) -> None:
-        """Send an achievement when person replied to someone."""
+        """Give an achievement to a person in reply message on mention achievements"""
         bot = context.bot
         message_text = update.message.text
         chat_id = update.message.chat_id
@@ -107,10 +130,8 @@ class Bot:
         # TODO: defend from ddos (1 new achievement per person per day, except me to add initial achievements)
         self.db_manager.save_prompt_message(chat_id, user_id, cited_user_id, message_text, prompt)
 
-        # TODO: if this is a new chat -- determine a sticker user
-        # TODO: take sticker admin user id
-        # TODO: paste here your username if you have premium account
-        stickers_owner_id = 249427415
+        # check if the sticker owner is defined for this chat
+        stickers_owner_id = await self.__determine_stickerset_owner(chat_id, context)
 
         # generate all needed stickers
         achievement_sticker = self.sticker_generator.generate_sticker_from_prompt(prompt)
@@ -119,11 +140,11 @@ class Bot:
 
         # update chat's sticker set
         logger.info(f"Adding new stickers to chat {chat_id}'s sticker set")
-        achievement_description_chat_sticker_file_id = await self.add_chat_stickers(stickers_owner_id, chat_id, chat_name, achievement_sticker, chat_description_sticker, context)
+        achievement_description_chat_sticker_file_id = await self.add_chat_stickers(stickers_owner_id, chat_id, chat_name, achievement_sticker, chat_description_sticker, prompt, context)
 
         # update user's sticker set
         logger.info(f"Adding new stickers to user {cited_user_id}'s sticker set in chat {chat_id}")
-        achievement_user_sticker_file_id = await self.add_user_stickers(stickers_owner_id, cited_user_id, cited_user_username, chat_id, chat_name, achievement_sticker, user_description_sticker, context)
+        achievement_user_sticker_file_id = await self.add_user_stickers(stickers_owner_id, cited_user_id, cited_user_username, chat_id, chat_name, achievement_sticker, user_description_sticker, prompt, context)
 
         # Respond in the chat
         #    with the greeting message
@@ -136,6 +157,67 @@ class Bot:
         #    with the achievement's description sticker from chat's sticker set (since it indicate the rarity of the given sticker?)
         await bot.send_sticker(chat_id, achievement_description_chat_sticker_file_id)
 
+    async def on_sticker_reply(self, update: Update, context: CallbackContext) -> None:
+        """Send an achievement when person replied to another person with a chat sticker"""
+        bot = context.bot
+        sticker_file_id = update.message.sticker.file_unique_id
+        chat_id = update.message.chat_id
+        chat_name = update.effective_chat.effective_name
+        user_id = update.message.from_user.id
+        invoking_user_name = update.message.from_user.username
+
+        if not update.message.reply_to_message:
+            logger.info(f"{user_id} in {chat_id} mentioned выдаю ачивку, but it wasn't reply")
+            return
+
+        cited_user_id = update.message.reply_to_message.from_user.id
+        cited_user_username = update.message.reply_to_message.from_user.username
+
+        # TODO: We might need an additional cash layer in front of this kind of data (chat_id -> sticker_id[])
+        (chat_sticker_set_info, session) = self.db_manager.get_chat_sticker_set(chat_id)
+        logger.info(f"Current state of chat stickers: {chat_sticker_set_info}")
+        stickers_to_types = dict(map(lambda s: (s.file_unique_id, [s.type, s.index_in_sticker_set]), chat_sticker_set_info))
+
+        # Check if the sticker was from the chat stickerset
+        if sticker_file_id in stickers_to_types:
+
+            (sticker_type, sticker_index) = stickers_to_types[sticker_file_id]
+            if sticker_type == 'achievement':
+
+                #TODO: add the ddos check
+
+                # get information about old tickets
+                achievement_sticker_file_path = list(filter(lambda sticker_info: sticker_info.index_in_sticker_set == sticker_index, chat_sticker_set_info))[0].file_path
+                description_sticker = list(filter(lambda sticker_info: sticker_info.index_in_sticker_set == sticker_index + 5, chat_sticker_set_info))[0]
+
+                logger.info(f"We intend to remove the sticker {description_sticker} at the location {sticker_index + 5}")
+                # determine chat's stickers set owner
+                stickerset_owner = description_sticker.sticker_set_owner_id
+
+                # update user's stickers
+                achievement_sticker = self.sticker_generator.sticker_file_manager.get_bytes_from_path(achievement_sticker_file_path)
+                user_description_sticker = self.sticker_generator.generate_description_sticker(description_sticker.engraving_text)
+                achievement_user_sticker_file_id = await self.add_user_stickers(stickerset_owner, cited_user_id, cited_user_username, chat_id, chat_name, (achievement_sticker_file_path, achievement_sticker), user_description_sticker, description_sticker.engraving_text, context)
+
+                # update number on chat description sticker
+                achievement_description_chat_sticker_file_id = await self.increase_counter_on_chat_description_sticker(stickerset_owner, chat_id, description_sticker.file_id, description_sticker.sticker_set_name, sticker_index + 5, description_sticker.engraving_text, description_sticker.times_achieved, context)
+
+                # Respond in the chat
+                #    with the greeting message
+                await update.message.reply_text(
+                    f'Congrats @{cited_user_username} you just received the achievement from @{invoking_user_name} in \'{chat_name}\' chat for \'{description_sticker.engraving_text}\'')
+        
+                #    with the achievement sticker from user's sticker set
+                await bot.send_sticker(chat_id, achievement_user_sticker_file_id)
+
+                #    with the achievement's description sticker from chat's sticker set (since it indicate the rarity of the given sticker?)
+                await bot.send_sticker(chat_id, achievement_description_chat_sticker_file_id)
+            elif sticker_type == 'empty':
+                await update.message.reply_text("This achievement is not unblocked yet, so you can't give it to someone else!")
+
+        session.commit()
+        session.close()
+
     async def add_chat_stickers(
             self,
             stickers_owner: int,
@@ -143,12 +225,14 @@ class Bot:
             chat_name: str,
             achievement_sticker: tuple[str, bytes],
             chat_description_sticker: tuple[str, bytes],
+            prompt: str,
             context: CallbackContext) -> str:
         """Adds new achievement stickers to the chat sticker set and returns the file_id of the achievement sticker"""
         bot = context.bot
 
         # get current stickers for the chat
         (chat_stickers, session) = self.db_manager.get_chat_sticker_set(chat_id)
+        # map()
         logger.info(f"Chat stickers found in {chat_name}: {chat_stickers}")
 
         # update the stickers set with the new stickers
@@ -164,18 +248,21 @@ class Bot:
             sticker = sticker_set.stickers[sticker_index]
             sticker_type = "empty"
             times_achieved = None
+            engraving_text = None
             # each first line of stickers that comes before last achievement are achievements
             if sticker_index % 10 < 5 and sticker_index <= last_achievement_index:
                 sticker_type = "achievement"
-                times_achieved = 1
             # each second line of stickers that comes before last achievement's description are descriptions
             elif sticker_index % 10 >= 5 and sticker_index <= last_achievement_index + 5:
                 sticker_type = "description"
+                engraving_text = prompt
+                times_achieved = 1
             chat_stickers_to_update.append(
                 ChatSticker(
                     file_id=sticker.file_id,
                     file_unique_id=sticker.file_unique_id,
                     type=sticker_type,
+                    engraving_text = engraving_text,
                     times_achieved=times_achieved,
                     index_in_sticker_set=sticker_index,
                     chat_id=chat_id,
@@ -194,7 +281,52 @@ class Bot:
 
         return sticker_set.stickers[last_achievement_index + 5].file_id
 
-    async def add_user_stickers(self, stickers_owner: int, user_id: int, user_name: str, chat_id: int, chat_name: str, achievement_sticker: tuple[str, bytes], user_description_sticker: tuple[str, bytes], context: CallbackContext) -> None:
+    async def increase_counter_on_chat_description_sticker(self, stickers_owner: int, chat_id: int, old_description_sticker_file_id, chat_sticker_set_name: str, sticker_index: int, description_sticker_engraving: str, times_achieved: int, context: CallbackContext) -> None:
+        """Increase counter on the achivement's description sticker by 1"""
+        bot = context.bot
+
+        # generate new sticker
+        logger.info(f"Increasing number of times achievement {description_sticker_engraving} was achieved to {times_achieved +1}")
+        description_sticker = self.sticker_generator.generate_group_chat_description_sticker(description_sticker_engraving, times_achieved + 1)
+
+        # replace the old sticker
+        # TODO: once the `replace_sticker_in_set` API become stable we could rewrite the following code with 1 line:
+        # await bot.replace_sticker_in_set(stickers_owner, chat_sticker_set_name, old_description_sticker_file_id, InputSticker(description_sticker[1], [self.ACHIEVEMENT_EMOJI], StickerFormat.STATIC))
+        # However currently the new API is unable to recognise old file ids... (Hours spent on this bug: 2)
+        await bot.delete_sticker_from_set(old_description_sticker_file_id)
+        logger.info(f"Old description sticker in the {chat_sticker_set_name} sticker set was deleted")
+        await bot.add_sticker_to_set(stickers_owner, chat_sticker_set_name, InputSticker(description_sticker[1], [self.ACHIEVEMENT_EMOJI], StickerFormat.STATIC))
+        logger.info(f"New description sticker was added at the end of {chat_sticker_set_name} sticker set")
+        sticker_set = await bot.get_sticker_set(chat_sticker_set_name)
+        chat_description_sticker_id = sticker_set.stickers[-1].file_id
+        await bot.set_sticker_position_in_set(chat_description_sticker_id, sticker_index)
+        logger.info(f"New description sticker was set at the position {sticker_index} in the {chat_sticker_set_name} sticker set")
+        
+        # get the updated sticker set from telegram (needed to get file_id and file_unique_id for each sticker)
+        chat_sticker_set = await bot.get_sticker_set(chat_sticker_set_name)
+        logger.info(f"Fetching updated {chat_sticker_set_name} sticker set")
+
+        # update sticker in the database
+        # Note: due to the reasons described above, it's better to fetch all new ids now
+        sticker = chat_sticker_set.stickers[sticker_index]
+        chat_sticker_to_update = ChatSticker(
+            file_id=sticker.file_id,
+            file_unique_id=sticker.file_unique_id,
+            type="description",
+            engraving_text = description_sticker_engraving,
+            times_achieved=times_achieved + 1,
+            index_in_sticker_set=sticker_index,
+            chat_id=chat_id,
+            sticker_set_name=chat_sticker_set_name,
+            sticker_set_owner_id=stickers_owner,
+            file_path=description_sticker[0]
+        )
+        self.db_manager.create_chat_stickers_or_update_if_exist([chat_sticker_to_update])
+        logger.info(f"Updated sticker {chat_sticker_to_update} in the {chat_sticker_set_name} sticker set")
+
+        return sticker.file_id
+
+    async def add_user_stickers(self, stickers_owner: int, user_id: int, user_name: str, chat_id: int, chat_name: str, achievement_sticker: tuple[str, bytes], user_description_sticker: tuple[str, bytes], prompt: str, context: CallbackContext) -> None:
         """Adds new achievement stickers to the user sticker pack"""
         bot = context.bot
 
@@ -218,6 +350,7 @@ class Bot:
         for sticker_index, sticker_file in stickers_to_add.items():
             sticker = sticker_set.stickers[sticker_index]
             sticker_type = "empty"
+            engraving_text = None
             # first sticker always profile sticker
             if sticker_index == 0:
                 sticker_type = "profile"
@@ -230,11 +363,13 @@ class Bot:
             # each second line of stickers that comes before last achievement's description are descriptions
             elif sticker_index % 10 >= 5 and sticker_index <= last_achievement_index + 5:
                 sticker_type = "description"
+                engraving_text = prompt
             user_stickers_to_update.append(
                 UserSticker(
                     file_id=sticker.file_id,
                     file_unique_id=sticker.file_unique_id,
                     type=sticker_type,
+                    engraving_text = engraving_text,
                     index_in_sticker_set=sticker_index,
                     user_id=user_id,
                     chat_id=chat_id,
@@ -251,6 +386,21 @@ class Bot:
         logger.info(f"Newly created stickers {list(map(lambda sticker: sticker[0], stickers_to_add.values()))} were added to the {user_sticker_set_name} sticker set")
 
         return sticker_set.stickers[last_achievement_index].file_id
+    
+    async def __determine_stickerset_owner(
+            self,
+            chat_id: str,
+            context: CallbackContext
+    ) -> int:
+        """
+        Function that returns the stickerset owner for the chat, or None if such doesn't exist
+        """
+        bot = context.bot
+
+        # TODO: if this is a new chat -- determine a sticker user
+        # TODO: take sticker admin user id
+        # TODO: paste here your username if you have premium account
+        return 249427415
 
     async def __upload_stickers_to_stickerset(
         self,
@@ -405,9 +555,9 @@ class Bot:
         self.application.add_handler(CommandHandler("unban", self.unban))
 
         # public commands
+        self.application.add_handler(CommandHandler("show", self.show_sticker_set))
         self.application.add_handler(MessageHandler(filters.TEXT & filters.REPLY & filters.Regex('выдаю ачивку'), self.on_give))
-        # TODO: implement sticker replies
-        #  self.application.add_handler(MessageHandler(filters.reply & filters.sticker, handle_sticker_replies))
+        self.application.add_handler(MessageHandler(filters.REPLY & filters.Sticker.ALL, self.on_sticker_reply))
         # TODO: implement notification message (if triggered, send a notification to all channels it was send to)
 
         # Run the bot until the user presses Ctrl-C
