@@ -32,6 +32,10 @@ logger = logging.getLogger(__name__)
 
 class Bot:
     ACHIEVEMENT_EMOJI = "🥇"
+    NEW_ACHIEVEMENT_DAILY_INVOCATIONS_LIMIT = 2
+    SHOW_STICKERS_DAILY_INVOCATIONS_LIMIT = 20
+    NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT = 5
+    SHOW_STICKERS_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT = 5
 
     def __init__(self, db_manager: DbManager, prompt_detector: PromptDetector, sticker_generator: StickerGenerator):
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
@@ -50,8 +54,18 @@ class Bot:
         @wraps(func)
         async def wrapped(bot, update, context, *args, **kwargs):
             user_id = update.message.from_user.id
-            logger.info(f"wrapper function called by {user_id}")
             if user_id not in LIST_OF_ADMINS:
+                return
+            return await func(bot, update, context, *args, **kwargs)
+        return wrapped
+    
+    def restricted_to_not_banned(func):
+        """Restricts the usage of the command to admins of the bot"""
+        @wraps(func)
+        async def wrapped(bot, update, context, *args, **kwargs):
+            user_name = update.message.from_user.username
+            if bot.db_manager.is_banned(user_name):
+                logger.info(f"attempt to bypass ban from {user_name}")
                 return
             return await func(bot, update, context, *args, **kwargs)
         return wrapped
@@ -62,9 +76,13 @@ class Bot:
         
         See more: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#restrict-access-to-a-handler-decorator
         """
-        logger.info("ban was executed")
-        #TODO: implement
-        await update.message.reply_text("@user, the admin has restricted your access to the bot")
+        message_text = update.message.text
+        if '@' in message_text:
+            user_name = message_text.split('@')[1]
+            self.db_manager.ban(user_name)
+            await update.message.reply_text(f"@{user_name}, the admin has restricted your access to the bot")
+        else:
+            await update.message.reply_text(f"In order to ban a user, invoke /ban command with the mention of the user that you intend to ban (e.g. /ban @username)")
     
     @restricted_to_admins
     async def unban(self, update: Update, context: CallbackContext) -> None:
@@ -72,8 +90,13 @@ class Bot:
         
         See more: https://github.com/python-telegram-bot/python-telegram-bot/wiki/Code-snippets#restrict-access-to-a-handler-decorator
         """
-        #TODO: implement
-        await update.message.reply_text("@user, the admin has lifted the restriction on your access to the bot")
+        message_text = update.message.text
+        if '@' in message_text:
+            user_name = message_text.split('@')[1]
+            self.db_manager.unban(user_name)
+            await update.message.reply_text(f"@{user_name}, the admin has lifted the restriction on your access to the bot")
+        else:
+            await update.message.reply_text(f"In order to unban a user, invoke /unban command with the mention of the user that you intend to ban (e.g. /unban @username)")
     
     async def start(self, update: Update, context: CallbackContext) -> None:
         """Send a description of the bot when the command /start is issued."""
@@ -83,12 +106,27 @@ class Bot:
         """Send a FAQ with short description of commands when the command /help is issued."""
         await update.message.reply_text("TODO: write meaningful description of the bot")
     
+    @restricted_to_not_banned
     async def show_sticker_set(self, update: Update, context: CallbackContext) -> None:
         """Send a link to sticker set of the user"""
         chat_id = update.message.chat_id
         chat_name = update.effective_chat.effective_name
         user_id = update.message.from_user.id
         username = update.message.from_user.username
+        
+        # Limit number of invocations daily, when exceeded a warning will be given
+        warnings = 0
+        if user_id not in LIST_OF_ADMINS:
+            warnings = self.db_manager.add_warning(user_id, chat_id, "show_stickers", self.SHOW_STICKERS_DAILY_INVOCATIONS_LIMIT, "show_stickers_invocations_exceed")
+        if warnings > self.SHOW_STICKERS_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT:
+            self.db_manager.ban(username)
+            await update.message.reply_text(
+                f'@{username} you exceeded the limit of {self.SHOW_STICKERS_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT}, so as we warned previously, we permanently ban you from utilizing this bot')
+            return
+        elif warnings > 0:
+            await update.message.reply_text(
+                f'@{username}, we\'ve noticed unusual activity from your account, currently there is a limit of {self.SHOW_STICKERS_DAILY_INVOCATIONS_LIMIT} daily /show executions per individual. Exceeding this limit will prompt notifications such as this one. Accumulating {self.SHOW_STICKERS_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT} warnings of this nature within a single day may result in permanent suspension from utilizing our bot.')
+            return
 
         chat_stickerset_name = self.db_manager.get_chat_sticker_set_name(chat_id)
         user_stickerset_name = self.db_manager.get_user_sticker_set_name(user_id, chat_id)
@@ -105,6 +143,7 @@ class Bot:
 
         await update.message.reply_text(response)
 
+    @restricted_to_not_banned
     async def on_give(self, update: Update, context: CallbackContext) -> None:
         """Give an achievement to a person in reply message on mention achievements"""
         bot = context.bot
@@ -125,9 +164,23 @@ class Bot:
         prompt = self.prompt_detector.detect(message_text)
         if not prompt:
             await update.message.reply_text(
-                f'User {user_id} in {chat_id} chat mentioned \'выдаю ачивку\' to {cited_user_id}! But prompt was not identified :(')
+                f'User @{invoking_user_name} mentioned \'выдаю ачивку\' to @{cited_user_username}! But prompt was not identified :(')
+            return
 
-        # TODO: defend from ddos (1 new achievement per person per day, except me to add initial achievements)
+        # Limit number of invocations daily, when exceeded a warning will be given
+        warnings = 0
+        if user_id not in LIST_OF_ADMINS:
+            warnings = self.db_manager.add_warning(user_id, chat_id, "new_achievement", self.NEW_ACHIEVEMENT_DAILY_INVOCATIONS_LIMIT, "new_achievement_invocations_exceed")
+        logger.info(f'After @{invoking_user_name} execution, there were {warnings} warnings triggered for this user')
+        if warnings > self.NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT:
+            self.db_manager.ban(invoking_user_name)
+            await update.message.reply_text(
+                f'@{invoking_user_name} you exceeded the limit of {self.NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT}, so as we warned previously, we permanently ban you from utilizing this bot')
+            return
+        elif warnings > 0:
+            await update.message.reply_text(
+                f'Achievements are like rare jewels scattered throughout our lives, precious and unique. It\'s crucial to cherish their scarcity and significance. That\'s why we\'ve imposed a limit of {self.NEW_ACHIEVEMENT_DAILY_INVOCATIONS_LIMIT} daily executions per individual. Exceeding this limit will prompt notifications such as this one. Accumulating {self.NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT} warnings of this nature within a single day may result in permanent suspension from utilizing our bot. @{invoking_user_name}, we kindly ask for your cooperation in adhering to these guidelines.')
+            return
         self.db_manager.save_prompt_message(chat_id, user_id, cited_user_id, message_text, prompt)
 
         # check if the sticker owner is defined for this chat
@@ -157,6 +210,7 @@ class Bot:
         #    with the achievement's description sticker from chat's sticker set (since it indicate the rarity of the given sticker?)
         await bot.send_sticker(chat_id, achievement_description_chat_sticker_file_id)
 
+    @restricted_to_not_banned
     async def on_sticker_reply(self, update: Update, context: CallbackContext) -> None:
         """Send an achievement when person replied to another person with a chat sticker"""
         bot = context.bot
@@ -184,7 +238,19 @@ class Bot:
             (sticker_type, sticker_index) = stickers_to_types[sticker_file_id]
             if sticker_type == 'achievement':
 
-                #TODO: add the ddos check
+                # Limit number of invocations daily, when exceeded a warning will be given
+                warnings = 0
+                if user_id not in LIST_OF_ADMINS:
+                    warnings = self.db_manager.add_warning(user_id, chat_id, "new_achievement", self.NEW_ACHIEVEMENT_DAILY_INVOCATIONS_LIMIT, "new_achievement_invocations_exceed")
+                if warnings > self.NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT:
+                    self.db_manager.ban(invoking_user_name)
+                    await update.message.reply_text(
+                        f'@{invoking_user_name} you exceeded the limit of {self.NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT}, so as we warned previously, we permanently ban you from utilizing this bot')
+                    return
+                elif warnings > 0:
+                    await update.message.reply_text(
+                        f'Achievements are like rare jewels scattered throughout our lives, precious and unique. It\'s crucial to cherish their scarcity and significance. That\'s why we\'ve imposed a limit of {self.NEW_ACHIEVEMENT_DAILY_INVOCATIONS_LIMIT} daily executions per individual\n\nExceeding this limit will prompt notifications such as this one. Accumulating {self.NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT} warnings of this nature within a single day may result in permanent suspension from utilizing our bot. @{invoking_user_name}, we kindly ask for your cooperation in adhering to these guidelines.')
+                    return
 
                 # get information about old tickets
                 achievement_sticker_file_path = list(filter(lambda sticker_info: sticker_info.index_in_sticker_set == sticker_index, chat_sticker_set_info))[0].file_path
@@ -232,7 +298,6 @@ class Bot:
 
         # get current stickers for the chat
         (chat_stickers, session) = self.db_manager.get_chat_sticker_set(chat_id)
-        # map()
         logger.info(f"Chat stickers found in {chat_name}: {chat_stickers}")
 
         # update the stickers set with the new stickers
@@ -307,7 +372,6 @@ class Bot:
         logger.info(f"Fetching updated {chat_sticker_set_name} sticker set")
 
         # update sticker in the database
-        # Note: due to the reasons described above, it's better to fetch all new ids now
         sticker = chat_sticker_set.stickers[sticker_index]
         chat_sticker_to_update = ChatSticker(
             file_id=sticker.file_id,

@@ -1,8 +1,10 @@
 import os
 import logging
 
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session, declarative_base, aliased
-from sqlalchemy import create_engine, text, Column, Integer, String, BigInteger, Text, func
+from sqlalchemy import create_engine, text, Column, Integer, String, BigInteger, Text, DateTime, func
+from typing import Optional
 
 # Enable logging
 logging.basicConfig(level=logging.INFO,
@@ -11,6 +13,19 @@ logger = logging.getLogger(__name__)
 
 Base = declarative_base()
 
+class AchievementMessage(Base):
+    __tablename__ = 'achievement_messages'
+
+    id = Column(BigInteger, primary_key=True)
+    chat_id = Column(BigInteger, nullable=False, comment="The chat Id")
+    invoking_user_id = Column(BigInteger, nullable=False, comment="The user ID of a peron who invoked give achievement command")
+    target_user_id = Column(BigInteger, nullable=False, comment="The user ID of a person who was targeted for an achievement")
+    message_text = Column(Text, nullable=False, comment="The message text")
+    prompt_text = Column(Text, nullable=False, comment="Detected prompt text (null if the prompt was unknown)")
+    timestamp = Column(DateTime(timezone=True), nullable=False,  server_default=func.now(), comment="The timestamp of the message")
+
+    def __repr__(self):
+        return f"AchievementMessage(\n\tid={self.id},\n\tchat_id={self.chat_id},\n\tinvoking_user_id={self.invoking_user_id},\n\ttarget_user_id={self.target_user_id},\n\tmessage_text={self.message_text},\n\tprompt_text={self.prompt_text},\n\ttimestamp={self.timestamp})"
 
 class ChatSticker(Base):
     __tablename__ = 'chat_achievements'
@@ -47,6 +62,29 @@ class UserSticker(Base):
     def __repr__(self):
         return f"UserSticker(\n\tid={self.id},\n\tfile_id={self.file_id},\n\tfile_unique_id={self.file_unique_id},\n\ttype={self.type},\n\tindex_in_sticker_set={self.index_in_sticker_set},\n\tuser_id={self.user_id},\n\tchat_id={self.chat_id},\n\tsticker_set_name={self.sticker_set_name},\n\tfile_path={self.file_path}\n)"
 
+class WarningMessage(Base):
+    
+    __tablename__ = 'warnings'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, nullable=False, comment="The user ID of a peron who received warning")
+    chat_id = Column(BigInteger, nullable=False, comment="The chat ID")
+    interraction_type = Column(Text, nullable=True, comment="The type of interraction user had with the bot")
+    warning_type = Column(Text, nullable=True, comment="The type of warnings that was given to the user (If null - the entry means just an invocation)")
+    timestamp = Column(DateTime(timezone=True), nullable=False,  server_default=func.now(), comment="The timestamp of the warning")
+
+    def __repr__(self):
+        return f"WarningMessage(\n\tid={self.id},\n\tuser_id={self.user_id},\n\tchat_id={self.chat_id},\n\tinterraction_type={self.interraction_type},\n\twarning_type={self.warning_type},\n\ttimestamp={self.timestamp})"
+
+class BannedUser(Base):
+    __tablename__ = 'banned_users'
+
+    username = Column(Text, nullable=False, primary_key=True, comment="the username")
+    timestamp = Column(DateTime(timezone=True), nullable=False,  server_default=func.now(), comment="The timestamp of the ban")
+    #TODO: clean banned users every 6 months?
+
+    def __repr__(self):
+        return f"BannedUser(\n\tusername={self.username},\n\ttimestamp={self.timestamp})"
 class DbManager:
     def __init__(self):
         db_user = os.environ['POSTGRES_USER']
@@ -55,17 +93,15 @@ class DbManager:
 
         # SQLAlchemy setup
         self.engine = create_engine(f'postgresql://{db_user}:{db_password}@127.0.0.1:5432/{db_name}')
-        base = declarative_base()
-        base.metadata.create_all(self.engine)
+        Base.metadata.create_all(self.engine)
 
         logger.info("Connected to PostgresQL postgresql://%s:%s@127.0.0.1:5432/%s", masked_print(db_user),
                     masked_print(db_password), db_name)
 
-    # TODO: protect from SQL injections
     def save_prompt_message(self, chat_id, user_id, replied_user_id, message_text, prompt) -> None:
         session = Session(self.engine)
-        session.execute(text(
-            f"INSERT INTO achievement_messages(chat_id, invoking_user_id, target_user_id, message_text, prompt_text, timestamp) VALUES ('{chat_id}', '{user_id}', '{replied_user_id}', '{message_text}', '{prompt}', NOW())"))
+        achievement = AchievementMessage(chat_id = chat_id, invoking_user_id = user_id, target_user_id = replied_user_id, message_text = message_text, prompt_text = prompt)
+        session.add(achievement)
         session.commit()
         session.close()
 
@@ -189,6 +225,65 @@ class DbManager:
         session.commit()
         session.close()
         return result
+    
+    def add_warning(self, user_id: int, chat_id: int, interraction_type: str, max_attempts: int, warning_type: str) -> int:
+        """counts how many invocations of the type {interraction_type} user had with the bot.
+        
+        if it exceeded {max_attempts}, the warning of the type {warning_type} will be added to the user
+        """
+        session = Session(self.engine)
+
+        twenty_four_hours_ago = datetime.now() - timedelta(days=1)
+
+        entries_count_without_warning_type = (
+            session.query(WarningMessage)
+                .filter(WarningMessage.user_id == user_id)
+                .filter(WarningMessage.interraction_type == interraction_type)
+                .filter(WarningMessage.timestamp >= twenty_four_hours_ago)
+                .filter(WarningMessage.warning_type == None).count()
+        )
+        logger.info(f'{entries_count_without_warning_type} entries without warning with {max_attempts} as hard limit')
+
+        count_entries = 0
+
+        if entries_count_without_warning_type >= max_attempts:
+            session.add(WarningMessage(user_id=user_id, chat_id=chat_id, interraction_type=interraction_type, warning_type=warning_type))
+            session.commit()
+            count_entries = (
+                session.query(WarningMessage)
+                    .filter(WarningMessage.user_id == user_id)
+                    .filter(WarningMessage.interraction_type == interraction_type)
+                    .filter(WarningMessage.timestamp >= twenty_four_hours_ago) 
+                    .filter(WarningMessage.warning_type == warning_type).count()
+            )
+        else:
+            session.add(WarningMessage(user_id=user_id, chat_id=chat_id, interraction_type=interraction_type))
+        
+        session.commit()
+        session.close()
+
+        return count_entries
+    
+    def ban(self, username: str) -> None:
+        session = Session(self.engine)
+        session.add(BannedUser(username=username))
+        session.commit()
+        session.close()
+        return
+    
+    def unban(self, username: str) -> bool:
+        session = Session(self.engine)
+        deleted_count = session.query(BannedUser).filter(BannedUser.username == username).delete()
+        session.commit()
+        session.close()
+        return deleted_count != 0
+    
+    def is_banned(self, username: str) -> Optional[datetime]:
+        session = Session(self.engine)
+        ban_timestamp = (session.query(BannedUser.timestamp).filter(BannedUser.username == username).first())
+        session.commit()
+        session.close()
+        return ban_timestamp
 
 def masked_print(value: str) -> str:
     symbols_to_mask = int(0.8 * len(value))
