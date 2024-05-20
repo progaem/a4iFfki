@@ -3,8 +3,11 @@ import io
 import math
 import random
 
+from storage.s3 import ImageS3Storage
+from sticker.generator import StickerGenerator, StickerGeneratorError
 
-class StickerGenerator:
+
+class StickerCreationManager:
     WIDTH = 512
     HEIGHT = 512
     BACKGROUND_COLOR = (255, 255, 255, 0)  # Transparent background
@@ -17,13 +20,14 @@ class StickerGenerator:
     STICKER_ARC_MARGIN = 0.95  # Margin for arc that wraps group sticker
     STICKER_ARC_WIDTH = 10  # Width of the arc
     FONT_SIZE = 30  # TODO: make a range
-    FONT_PATH = "resources/GothamProBlack.ttf"
+    FONT_PATH = "../resources/GothamProBlack.ttf"
     # With default font size {FONT_SIZE}, the maximum characters that would fit into line without new spaces
     MAX_SYMBOLS_IN_LINE = 25
     EMPTY_STICKER_PATH = "sticker_files/empty.png"
 
-    def __init__(self, sticker_file_manager):
+    def __init__(self, sticker_file_manager: ImageS3Storage, sticker_generator: StickerGenerator):
         self.sticker_file_manager = sticker_file_manager
+        self.sticker_generator = sticker_generator
 
     def get_empty_sticker(self) -> tuple[str, bytes]:
         """Gets already generated empty achievement sticker"""
@@ -56,11 +60,9 @@ class StickerGenerator:
         image = self.__add_text_on_sticker(image, description, 2 * (1 - self.STICKER_ARC_MARGIN))
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
-    # TODO: implement
-    def generate_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
+    async def generate_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
         """Generates sticker from prompt"""
-        image = self.__generate_sticker_of_random_color()
-        image = self.__add_text_on_sticker(image, f"картинка про {prompt}", 0)
+        image = await self.sticker_generator.generate_image(prompt)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     def generate_sticker_with_profile_picture(self, image: bytes) -> tuple[str, bytes]:

@@ -85,7 +85,8 @@ class BannedUser(Base):
 
     def __repr__(self):
         return f"BannedUser(\n\tusername={self.username},\n\ttimestamp={self.timestamp})"
-class DbManager:
+
+class PostgresDatabase:
     def __init__(self):
         db_user = os.environ['POSTGRES_USER']
         db_password = os.environ['POSTGRES_PASSWORD']

@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 
-class StickerFileManager:
+class ImageS3Storage:
 
     def __init__(self):
         self.minio_access_key = os.environ['MINIO_ROOT_USER']

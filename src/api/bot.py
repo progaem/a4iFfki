@@ -1,11 +1,9 @@
-#!/usr/bin/env python
 import logging
 import os
 import random
 import string
 
 from functools import wraps
-from urllib import response
 
 from telegram import Update, InputSticker
 from telegram._bot import BT
@@ -14,9 +12,9 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackCo
 import telegram.ext.filters as filters
 
 from utils.utils import masked_print
-from db.db_manager import DbManager, ChatSticker, UserSticker
-from prompt.prompt_detector import PromptDetector
-from sticker.sticker_generator import StickerGenerator
+from storage.postgres import PostgresDatabase, ChatSticker, UserSticker
+from messaging.prompt_detector import PromptDetector
+from sticker.creation_manager import StickerCreationManager
 
 # TODO: add Misha
 LIST_OF_ADMINS = [249427415]
@@ -37,7 +35,7 @@ class Bot:
     NEW_ACHIEVEMENT_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT = 5
     SHOW_STICKERS_INVOCATIONS_EXCEEDED_WARNINGS_LIMIT = 5
 
-    def __init__(self, db_manager: DbManager, prompt_detector: PromptDetector, sticker_generator: StickerGenerator):
+    def __init__(self, db_manager: PostgresDatabase, prompt_detector: PromptDetector, sticker_generator: StickerCreationManager):
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
 
         telegram_token = os.environ['TELEGRAM_BOT_TOKEN']
@@ -187,7 +185,7 @@ class Bot:
         stickers_owner_id = await self.__determine_stickerset_owner(chat_id, context)
 
         # generate all needed stickers
-        achievement_sticker = self.sticker_generator.generate_sticker_from_prompt(prompt)
+        achievement_sticker = await self.sticker_generator.generate_sticker_from_prompt(prompt)
         chat_description_sticker = self.sticker_generator.generate_group_chat_description_sticker(prompt, 1)
         user_description_sticker = self.sticker_generator.generate_description_sticker(prompt)
 
