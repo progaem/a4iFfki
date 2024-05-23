@@ -3,11 +3,18 @@ import io
 import math
 import random
 
+from enum import Enum
 from storage.s3 import ImageS3Storage
 from sticker.generator import StickerGenerator, StickerGeneratorError
 
+class StickerType(Enum):
+    EMPTY = 1
+    ACHIEVEMENT = 2
+    DESCRIPTION = 3
+    PROFILE = 4
+    PROFILE_DESCRIPTION = 5
 
-class StickerCreationManager:
+class StickerArtist:
     WIDTH = 512
     HEIGHT = 512
     BACKGROUND_COLOR = (255, 255, 255, 0)  # Transparent background

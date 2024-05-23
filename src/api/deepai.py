@@ -1,4 +1,5 @@
 import httpx
+import os
 
 from PIL import Image
 from io import BytesIO
@@ -11,8 +12,8 @@ class DeepAIAPI:
     DEEP_AI_URL = "https://api.deepai.org/api/text2img" # Deep AI API
     DEEP_AI_API_TIMEOUT = 60.0 # Timeout setting for Deep AI API
     
-    def __init__(self, api_key):
-        self.api_key = api_key
+    def __init__(self):
+        self.api_key = os.environ['DEEPAI_API_TOKEN']
     
     async def generate_image(self, prompt: str) -> Image:
         """Generates an image from english prompt using Google translate API

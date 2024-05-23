@@ -1,4 +1,5 @@
 import re
+import os
 import httpx
 
 from utils.exceptions import GoogleAPIError
@@ -11,8 +12,8 @@ class GoogleTranslateAPI:
     GOOGLE_TRANSLATE_API_MAXIMUM_STRINGS = 128 # Maximum amount of strings to be allowed in Google translate API request
     GOOGLE_TRANSLATE_API_TIMEOUT = 60.0 # Timeout setting for Google translate API
     
-    def __init__(self, api_key):
-        self.api_key = api_key
+    def __init__(self):
+        self.api_key = os.environ['GOOGLE_TRANSLATE_API']
     
     async def translate(self, text_to_translate: str) -> str:
         """Translates original achievement text to english using Google translate API.

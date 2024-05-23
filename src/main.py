@@ -1,8 +1,12 @@
-from utils.utils import load_config, masked_print
-from api.bot import Bot
+from api.deepai import DeepAIAPI
+from api.translate import GoogleTranslateAPI
+from bot.access import WarningsProcessor
+from bot.stickers import StickerManager
+from utils.utils import load_config
+from bot.bot import Bot
 from storage.postgres import PostgresDatabase
 from messaging.prompt_detector import PromptDetector
-from sticker.creation_manager import StickerCreationManager
+from sticker.artist import StickerArtist
 from storage.s3 import ImageS3Storage
 from sticker.generator import StickerGenerator
 
@@ -11,15 +15,17 @@ if __name__ == "__main__":
     # load all variables from devo.conf to environmental variables
     load_config()
 
-    # set up connection with db
-    db_manager = PostgresDatabase()
-
-    # create needed services
-    prompt_detector = PromptDetector()
+    database = PostgresDatabase()
     sticker_file_manager = ImageS3Storage()
-    text_to_image_generator = StickerGenerator()
-    sticker_manager = StickerCreationManager(sticker_file_manager, text_to_image_generator)
+    
+    google_api = GoogleTranslateAPI()
+    deepai_api = DeepAIAPI()
+    sticker_generator = StickerGenerator(google_api, deepai_api)
+    sticker_artist = StickerArtist(sticker_file_manager, sticker_generator)
 
-    # Run telegram bot
-    bot = Bot(db_manager, prompt_detector, sticker_manager)
+    prompt_detector = PromptDetector()
+    
+    warning_processor = WarningsProcessor(database)
+    sticker_manager = StickerManager(database, sticker_artist)
+    bot = Bot(database, prompt_detector, warning_processor, sticker_artist, sticker_manager)
     bot.run()

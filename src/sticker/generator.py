@@ -13,12 +13,9 @@ logger = logging.getLogger(__name__)
 
 class StickerGenerator:
     
-    def __init__(self) -> None:
-        google_translate_api_token = os.environ['GOOGLE_TRANSLATE_API']
-        deep_api_token = os.environ['DEEPAI_API_TOKEN']
-        
-        self.google_translate_api = GoogleTranslateAPI(google_translate_api_token)
-        self.deep_api = DeepAIAPI(deep_api_token)
+    def __init__(self, google_translate_api: GoogleTranslateAPI, deep_api: DeepAIAPI) -> None:
+        self.google_translate_api = google_translate_api
+        self.deep_api = deep_api
     
     async def generate_image(self, achievement_text: str) -> Image:
         """Generates image from text using Google Translate API and Deep AI API

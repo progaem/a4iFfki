@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session, declarative_base, aliased
 from sqlalchemy import create_engine, text, Column, Integer, String, BigInteger, Text, DateTime, func
 from typing import Optional
 
+from utils.utils import masked_print
+
 # Enable logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -85,6 +87,15 @@ class BannedUser(Base):
 
     def __repr__(self):
         return f"BannedUser(\n\tusername={self.username},\n\ttimestamp={self.timestamp})"
+
+class StickersetOwner(Base):
+    __tablename__ = 'stickerset_owners'
+
+    user_id = Column(Text, nullable=False, primary_key=True, comment="the stickerset owner ID")
+    chat_id = Column(BigInteger, nullable=False, comment="The chat ID")
+
+    def __repr__(self):
+        return f"StickersetOwner(\n\tuser_id={self.user_id},\n\tchat_id={self.chat_id})"
 
 class PostgresDatabase:
     def __init__(self):
@@ -227,6 +238,36 @@ class PostgresDatabase:
         session.close()
         return result
     
+    def get_stickerset_owner(self, chat_id: int) -> int | None:
+        session = Session(self.engine)
+        stickerset_owner_id = (
+            session.query(StickersetOwner.user_id)
+                .filter(StickersetOwner.chat_id == chat_id)
+                .limit(1)
+                .scalar()
+        )
+        session.commit()
+        session.close()
+        return stickerset_owner_id
+    
+    def define_stickerset_owner(self, user_id: int, chat_id: int) -> None:
+        session = Session(self.engine)
+        session.add(StickersetOwner(user_id=user_id, chat_id=chat_id))
+        session.commit()
+        session.close()
+        return
+    
+    def is_stickerset_owner_defined_for_chat(self, chat_id: int) -> bool:
+        session = Session(self.engine)
+        stickerset_owner_rows = (
+            session.query(StickersetOwner.user_id)
+                .filter(StickersetOwner.chat_id == chat_id)
+                .count()
+        )
+        session.commit()
+        session.close()
+        return stickerset_owner_rows != 0
+    
     def add_warning(self, user_id: int, chat_id: int, interraction_type: str, max_attempts: int, warning_type: str) -> int:
         """counts how many invocations of the type {interraction_type} user had with the bot.
         
@@ -285,7 +326,3 @@ class PostgresDatabase:
         session.commit()
         session.close()
         return ban_timestamp
-
-def masked_print(value: str) -> str:
-    symbols_to_mask = int(0.8 * len(value))
-    return value[:-symbols_to_mask] + 'X' * symbols_to_mask

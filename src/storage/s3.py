@@ -9,6 +9,8 @@ import random
 from PIL.Image import Image
 from botocore.exceptions import ClientError
 
+from utils.utils import masked_print
+
 # Enable logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -75,8 +77,3 @@ class ImageS3Storage:
 
     def __generate_file_name(self) -> str:
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
-
-
-def masked_print(value: str) -> str:
-    symbols_to_mask = int(0.8 * len(value))
-    return value[:-symbols_to_mask] + 'X' * symbols_to_mask
