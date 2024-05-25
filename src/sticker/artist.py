@@ -37,20 +37,15 @@ class StickerArtist:
         self.sticker_generator = sticker_generator
 
     def get_empty_sticker(self) -> tuple[str, bytes]:
-        """Gets already generated empty achievement sticker"""
+        """Gets an empty achievement sticker"""
         try:
             file_bytes = self.sticker_file_manager.get_bytes_from_path(self.EMPTY_STICKER_PATH)
             return self.EMPTY_STICKER_PATH, file_bytes
         except FileNotFoundError:
             return self.__generate_empty_sticker()
 
-    def __generate_empty_sticker(self) -> tuple[str, bytes]:
-        """Generates empty achievement sticker"""
-        image = self.__generate_sticker_of_color(self.DEFAULT_CIRCLE_COLOR)
-        return self.sticker_file_manager.save_and_convert_to_bytes(image, self.EMPTY_STICKER_PATH)
-
-    def generate_description_sticker(self, description: str) -> tuple[str, bytes]:
-        """Generates description sticker for achievement sticker"""
+    def draw_description_sticker(self, description: str) -> tuple[str, bytes]:
+        """Draws a description sticker for achievement"""
         # Choosing pleasant color palette
         red_color = random.randint(60, 170)
         green_color = random.randint(60, 170)
@@ -60,39 +55,45 @@ class StickerArtist:
         image = self.__add_text_on_sticker(image, description, 0)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
-    def generate_group_chat_description_sticker(self, description: str, number_of_people_achieved: int) -> tuple[str, bytes]:
-        """Generates description sticker for achievement sticker with number of people achieved it"""
+    def draw_chat_description_sticker(self, description: str, number_of_people_achieved: int) -> tuple[str, bytes]:
+        """Draws a description sticker for achievement with number of people achieved it"""
         image = self.__generate_sticker_of_gradient(self.INNER_GROUP_STICKER_COLOR, self.OUTER_GROUP_STICKER_COLOR)
         image = self.__add_number_with_arc_on_sticker(image, number_of_people_achieved)
         image = self.__add_text_on_sticker(image, description, 2 * (1 - self.STICKER_ARC_MARGIN))
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
-    async def generate_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
-        """Generates sticker from prompt"""
+    async def draw_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
+        """Draws a achievement sticker from prompt"""
+        # Note: during local development you can change it to
+        # image = self.__generate_sticker_of_random_color()
+        # image = self.__add_text_on_sticker(image, f"picture about {prompt}", 0)
         image = await self.sticker_generator.generate_image(prompt)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
-    def generate_sticker_with_profile_picture(self, image: bytes) -> tuple[str, bytes]:
-        """Generates sticker from profile picture"""
+    def draw_sticker_from_profile_picture(self, image: bytes) -> tuple[str, bytes]:
+        """Draws a sticker from profile picture"""
         image = Image.open(io.BytesIO(image))
         image = self.__expand2square(image, self.CIRCLE_COLOR).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
         image = self.__mask_circle_transparent(image)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
     
-    def generate_no_profile_picture_sticker(self, username: str) -> tuple[str, bytes]:
-        """Generates sticker from username"""
+    def draw_sticker_from_username(self, username: str) -> tuple[str, bytes]:
+        """Draws a sticker from username"""
         image = self.__generate_sticker_of_random_color()
         image = self.__add_text_on_sticker(image, username, 0)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
     
-    def generate_user_stickerset_description_sticker(self, username: str, chat_name: str) -> tuple[str, bytes]:
-        """Generates description sticker for achievement sticker"""
+    def draw_persons_stickerset_description_sticker(self, username: str, chat_name: str) -> tuple[str, bytes]:
+        """Draws description sticker for persons stickerset"""
         description = f"Stickerset of @{username}'s achievements for chat \'{chat_name}\'"
         # TODO: make number the place in total amount of achievements in group
-        return self.generate_group_chat_description_sticker(description, 1)
+        return self.draw_chat_description_sticker(description, 1)
+    
+    def __generate_empty_sticker(self) -> tuple[str, bytes]:
+        image = self.__generate_sticker_of_color(self.DEFAULT_CIRCLE_COLOR)
+        return self.sticker_file_manager.save_and_convert_to_bytes(image, self.EMPTY_STICKER_PATH)
 
-    @staticmethod
-    def __expand2square(image: Image, background_color) -> Image:
+    def __expand2square(self, image: Image, background_color) -> Image:
         width, height = image.size
         if width == height:
             return image
@@ -105,8 +106,7 @@ class StickerArtist:
             result.paste(image, ((height - width) // 2, 0))
             return result
 
-    @staticmethod
-    def __mask_circle_transparent(image: Image) -> Image:
+    def __mask_circle_transparent(self, image: Image) -> Image:
         mask = Image.new("L", image.size, 0)
         draw = ImageDraw.Draw(mask)
         draw.ellipse((0, 0, image.size[0], image.size[1]), fill=255)

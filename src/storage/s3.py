@@ -9,8 +9,6 @@ import random
 from PIL.Image import Image
 from botocore.exceptions import ClientError
 
-from utils.utils import masked_print
-
 # Enable logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -24,14 +22,9 @@ class ImageS3Storage:
         self.minio_secret_key = os.environ['MINIO_ROOT_PASSWORD']
         self.s3 = boto3.client(
             's3',
-            endpoint_url='http://localhost:9000',
+            endpoint_url='http://s3:9000',
             aws_access_key_id=self.minio_access_key,
             aws_secret_access_key=self.minio_secret_key)
-
-        logger.info(
-            "Connected to MINIO at http://localhost:9000 with access_key %s and secret_key %s",
-            masked_print(self.minio_access_key),
-            masked_print(self.minio_secret_key))
 
         self.bucket_name = "stickers"
         self.stickers_prefix = "sticker_files"
@@ -67,7 +60,7 @@ class ImageS3Storage:
     def __create_bucket(self, bucket_name: str) -> None:
         try:
             self.s3.create_bucket(Bucket=bucket_name)
-            logger.info("Successfully created bucket %s for storing stickers", masked_print(bucket_name))
+            logger.info("Successfully created bucket %s for storing stickers", bucket_name)
         except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == 'BucketAlreadyOwnedByYou':

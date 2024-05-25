@@ -6,8 +6,6 @@ from sqlalchemy.orm import Session, declarative_base, aliased
 from sqlalchemy import create_engine, text, Column, Integer, String, BigInteger, Text, DateTime, func
 from typing import Optional
 
-from utils.utils import masked_print
-
 # Enable logging
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -102,13 +100,11 @@ class PostgresDatabase:
         db_user = os.environ['POSTGRES_USER']
         db_password = os.environ['POSTGRES_PASSWORD']
         db_name = os.environ['POSTGRES_DB']
-
-        # SQLAlchemy setup
-        self.engine = create_engine(f'postgresql://{db_user}:{db_password}@127.0.0.1:5432/{db_name}')
+    
+        self.engine = create_engine(f'postgresql://{db_user}:{db_password}@postgres/{db_name}')
         Base.metadata.create_all(self.engine)
 
-        logger.info("Connected to PostgresQL postgresql://%s:%s@127.0.0.1:5432/%s", masked_print(db_user),
-                    masked_print(db_password), db_name)
+        logger.info("Connected to Postgres")
 
     def save_prompt_message(self, chat_id, user_id, replied_user_id, message_text, prompt) -> None:
         session = Session(self.engine)

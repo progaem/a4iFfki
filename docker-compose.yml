@@ -1,6 +1,21 @@
 version: '3.2'
 
 services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file: devo.conf
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./resources:/app/resources
+    depends_on:
+      - postgres
+      - s3
+    restart: always
+
   postgres:
     image: postgres:latest
     env_file: devo.conf

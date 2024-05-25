@@ -12,6 +12,7 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger(__name__)
 
 class StickerGenerator:
+    """Class that handles the process of creating a sticker from prompt, through utilizing DeepAI and Google Translate API"""
     
     def __init__(self, google_translate_api: GoogleTranslateAPI, deep_api: DeepAIAPI) -> None:
         self.google_translate_api = google_translate_api

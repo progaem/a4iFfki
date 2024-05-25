@@ -2,7 +2,6 @@ from api.deepai import DeepAIAPI
 from api.translate import GoogleTranslateAPI
 from bot.access import WarningsProcessor
 from bot.stickers import StickerManager
-from utils.utils import load_config
 from bot.bot import Bot
 from storage.postgres import PostgresDatabase
 from messaging.prompt_detector import PromptDetector
@@ -12,9 +11,6 @@ from sticker.generator import StickerGenerator
 
 
 if __name__ == "__main__":
-    # load all variables from devo.conf to environmental variables
-    load_config()
-
     database = PostgresDatabase()
     sticker_file_manager = ImageS3Storage()
     

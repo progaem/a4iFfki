@@ -1,6 +1,8 @@
+import json
+import html
 import logging
 import os
-from turtle import up
+import traceback
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram._bot import BT
@@ -8,7 +10,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackCo
 from telegram.constants import ParseMode
 import telegram.ext.filters as filters
 
-from bot.access import WarningsProcessor, restricted_to_admins, restricted_to_not_banned, restricted_to_stickerset_owners, restricted_to_undefined_stickerset_chats, restricted_to_defined_stickerset_chats
+from bot.access import LIST_OF_ADMINS, WarningsProcessor, restricted_to_admins, restricted_to_not_banned, restricted_to_stickerset_owners, restricted_to_undefined_stickerset_chats, restricted_to_defined_stickerset_chats
 from messaging.prompt_detector import PromptDetector
 from bot.stickers import StickerManager
 from sticker.artist import StickerArtist
@@ -25,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class Bot:
+    # TODO: Fetch from README.md instead of keeping in-memory (?)
     DOCUMENTATION = [
         ("What is it?", "This is the Achievements Bot\.\nEver wanted to show appreciation for someone's _achievements_ in a chat? With this bot, you can create unique stickers representing their achievements and assign them directly\. Each chat will also have a sticker set to keep track of all the achievements awarded\."),
         ("Where are the stickers stored?", "Stickers are stored in specific Telegram sticker sets\. There's one sticker set for each person to track individual achievements, and another for the entire chat to monitor collective achievements\.\n\nTo manage these sets, one chat member _with a PREMIUM account_ must become the sticker set owner by sending /own\_stickers in the chat\.\n\nRemember, if you're the owner, DO NOT modify these stickers as it could disrupt the bot's functionality\."),
@@ -78,18 +81,22 @@ class Bot:
             await update.message.reply_text("In order to unban a user, invoke /unban command with the mention of the user that you intend to ban (e.g. /unban @username)")
     
     ### COMMANDS AVAILABLE ONLY TO STICKERSET OWNERS ###
-    # TODO: - /transfer command, that transfers sticker set to another person and makes them stickerset owner
     
     @restricted_to_stickerset_owners
     async def reset(self, update: Update, context: CallbackContext) -> None:
         """Resets the achievements progress in the chat and deletes stickerset from the user"""
         pass
     
+    @restricted_to_stickerset_owners
+    async def transfer(self, update: Update, context: CallbackContext) -> None:
+        """Transfers sticker set to another person and makes them new stickerset owner"""
+        pass
+    
     ### COMMANDS AVAILABLE ONLY TO ALL USERS, ALL CHATS ###
     
     @restricted_to_not_banned
     async def start(self, update: Update, context: CallbackContext) -> None:
-        """Send a description of the bot when the command /start is issued."""
+        """Sends a greeting message with an interractive documentation message"""
         bot: BT = context.bot
         chat_id = update.message.chat_id
         
@@ -98,26 +105,35 @@ class Bot:
         await self.__documentation_message(update, context)
 
         if not self.database.is_stickerset_owner_defined_for_chat(chat_id):
-            await bot.send_message(chat_id, "*Reminder:*\nTo access additional features of the bot beyond the /start and /help commands, please designate a sticker set owner for this chat by using the /own\_stickers command", parse_mode=ParseMode.MARKDOWN_V2)
+            await bot.send_message(chat_id, "*Reminder:*\n\nTo access additional features of the bot beyond the /start and /help commands, _please designate a sticker set owner for this chat_ by using the /own\_stickers command", parse_mode=ParseMode.MARKDOWN_V2)
 
     @restricted_to_not_banned
     async def help_command(self, update: Update, context: CallbackContext) -> None:
-        """Send a FAQ with short description of commands when the command /help is issued."""
+        """Sends an interractive documentation message"""
         bot: BT = context.bot
         chat_id = update.message.chat_id
         
         await self.__documentation_message(update, context)
         
         if not self.database.is_stickerset_owner_defined_for_chat(chat_id):
-            await bot.send_message(chat_id, "*Reminder:*\nTo access additional features of the bot beyond the /start and /help commands, please designate a sticker set owner for this chat by using the /own\_stickers command", parse_mode=ParseMode.MARKDOWN_V2)
+            await bot.send_message(chat_id, "*Reminder:*\n\nTo access additional features of the bot beyond the /start and /help commands, _please designate a sticker set owner for this chat_ by using the /own\_stickers command", parse_mode=ParseMode.MARKDOWN_V2)
+    
+    async def documentation_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Modifies content of interractive documentation message when the user clicked selected different subtopic by pressing a button"""
+        query = update.callback_query
+        await query.answer()
 
+        keyboard = [[InlineKeyboardButton(content[0], callback_data=i) for i, content in enumerate(self.DOCUMENTATION)]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(text=self.__format_documentation_page(int(query.data)), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup)
     
     ### COMMANDS AVAILABLE ONLY TO CHATS WITH UNDEFINED STICKERSET OWNERS ###
     
     @restricted_to_not_banned
     @restricted_to_undefined_stickerset_chats
     async def own_stickers(self, update: Update, context: CallbackContext) -> None:
-        """Command that makes a user the owner of stickerset in the chat """
+        """Makes a user invoking the command the owner of stickerset in the chat """
         chat_id = update.message.chat_id
         user_id = update.message.from_user.id
         username = update.message.from_user.username
@@ -132,7 +148,7 @@ class Bot:
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
     async def show_sticker_set(self, update: Update, context: CallbackContext) -> None:
-        """Send a link to sticker set of the user"""
+        """Sends a link to the sticker set of the user and the sticker set of this chat"""
         chat_id = update.message.chat_id
         chat_name = update.effective_chat.effective_name
         user_id = update.message.from_user.id
@@ -159,7 +175,7 @@ class Bot:
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
     async def on_give(self, update: Update, context: CallbackContext) -> None:
-        """Give an achievement to a person in reply message on mention achievements"""
+        """Gives an achievement to a person in reply message"""
         message_text = update.message.text
         chat_id = update.message.chat_id
         chat_name = update.effective_chat.effective_name
@@ -180,13 +196,13 @@ class Bot:
         
         self.database.save_prompt_message(chat_id, user_id, cited_user_id, message_text, prompt)
 
-        # check if the sticker owner is defined for this chat
+        # fetch the sticker owner for this chat
         stickers_owner_id = self.database.get_stickerset_owner(chat_id)
 
         # generate all needed stickers
-        achievement_sticker = await self.sticker_artist.generate_sticker_from_prompt(prompt)
-        chat_description_sticker = self.sticker_artist.generate_group_chat_description_sticker(prompt, 1)
-        user_description_sticker = self.sticker_artist.generate_description_sticker(prompt)
+        achievement_sticker = await self.sticker_artist.draw_sticker_from_prompt(prompt)
+        chat_description_sticker = self.sticker_artist.draw_chat_description_sticker(prompt, 1)
+        user_description_sticker = self.sticker_artist.draw_description_sticker(prompt)
 
         # update sticker sets
         achievement_description_chat_sticker_file_id = await self.sticker_manager.add_chat_stickers(stickers_owner_id, chat_id, chat_name, achievement_sticker, chat_description_sticker, prompt, context)
@@ -197,7 +213,7 @@ class Bot:
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
     async def on_sticker_reply(self, update: Update, context: CallbackContext) -> None:
-        """Send an achievement when person replied to another person with a chat sticker"""
+        """Gives an existing achievement to a person in reply message"""
         sticker_file_id = update.message.sticker.file_unique_id
         chat_id = update.message.chat_id
         chat_name = update.effective_chat.effective_name
@@ -206,39 +222,60 @@ class Bot:
         cited_user_username = update.message.reply_to_message.from_user.username
 
         (chat_sticker_set_info, session) = self.database.get_chat_sticker_set(chat_id)
-        stickers_to_types = dict(map(lambda s: (s.file_unique_id, [s.type, s.index_in_sticker_set]), chat_sticker_set_info))
+        stickers_to_types = {s.file_unique_id: (s.type, s.index_in_sticker_set) for s in chat_sticker_set_info}
 
-        # Check if the sticker was from the chat stickerset
+        # check if the sticker was from the chat stickerset
         if sticker_file_id in stickers_to_types:
-
             (sticker_type, sticker_index) = stickers_to_types[sticker_file_id]
+            
             if sticker_type == 'achievement':
-
                 if await self.warnings_processor.add_give_achievement_warning(update):
+                    session.close()
                     return
+                
+                # retrieve mentioned achievement and it's description stickers
+                index_based_lookup = {s.index_in_sticker_set: s for s in chat_sticker_set_info}
+                achievement_sticker_info = index_based_lookup[sticker_index]
+                description_sticker_info = index_based_lookup[sticker_index + 5]
+                
+                achievement_sticker = self.sticker_artist.sticker_file_manager.get_bytes_from_path(achievement_sticker_info.file_path)
+                user_description_sticker = self.sticker_artist.draw_description_sticker(description_sticker_info.engraving_text)
 
-                # get information about old tickets
-                achievement_sticker_file_path = list(filter(lambda sticker_info: sticker_info.index_in_sticker_set == sticker_index, chat_sticker_set_info))[0].file_path
-                description_sticker = list(filter(lambda sticker_info: sticker_info.index_in_sticker_set == sticker_index + 5, chat_sticker_set_info))[0]
+                # add and update stickers
+                achievement_user_sticker_file_id = await self.sticker_manager.add_user_stickers(description_sticker_info.sticker_set_owner_id, cited_user_id, cited_user_username, chat_id, chat_name, (achievement_sticker_info.file_path, achievement_sticker), user_description_sticker, description_sticker_info.engraving_text, context)
+                achievement_description_chat_sticker_file_id = await self.sticker_manager.increase_counter_on_chat_description_sticker(description_sticker_info.sticker_set_owner_id, chat_id, description_sticker_info.file_id, description_sticker_info.sticker_set_name, sticker_index + 5, description_sticker_info.engraving_text, description_sticker_info.times_achieved, context)
 
-                # determine chat's stickers set owner
-                stickerset_owner = description_sticker.sticker_set_owner_id
-
-                # update user's stickers
-                achievement_sticker = self.sticker_artist.sticker_file_manager.get_bytes_from_path(achievement_sticker_file_path)
-                user_description_sticker = self.sticker_artist.generate_description_sticker(description_sticker.engraving_text)
-                achievement_user_sticker_file_id = await self.sticker_manager.add_user_stickers(stickerset_owner, cited_user_id, cited_user_username, chat_id, chat_name, (achievement_sticker_file_path, achievement_sticker), user_description_sticker, description_sticker.engraving_text, context)
-
-                # update number on chat description sticker
-                achievement_description_chat_sticker_file_id = await self.sticker_manager.increase_counter_on_chat_description_sticker(stickerset_owner, chat_id, description_sticker.file_id, description_sticker.sticker_set_name, sticker_index + 5, description_sticker.engraving_text, description_sticker.times_achieved, context)
-
-                # Respond in the chat
                 await self.__respond_with_achievement_stickers(update, context, invoking_user_name, cited_user_username, chat_name, chat_id, description_sticker.engraving_text, achievement_user_sticker_file_id, achievement_description_chat_sticker_file_id)
+            
             elif sticker_type == 'empty':
                 await update.message.reply_text("This achievement is not unblocked yet, so you can't give it to someone else!")
 
         session.commit()
         session.close()
+    
+    async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        logger.error("Exception while handling an update:", exc_info=context.error)
+
+        # TODO: track error causes
+        
+        # TODO: try rolling back the commited changes to snapshot done before the command
+
+        # as last resort notify developers about the failure
+        tb_list = traceback.format_exception(None, context.error, context.error.__traceback__)
+        tb_string = "".join(tb_list)
+        update_str = update.to_dict() if isinstance(update, Update) else str(update)
+        message = (
+            "An exception was raised while handling an update\n"
+            f"<pre>update = {html.escape(json.dumps(update_str, indent=2, ensure_ascii=False))}"
+            "</pre>\n\n"
+            f"<pre>context.chat_data = {html.escape(str(context.chat_data))}</pre>\n\n"
+            f"<pre>context.user_data = {html.escape(str(context.user_data))}</pre>\n\n"
+            f"<pre>{html.escape(tb_string)}</pre>"
+        )
+        for admin_chat_id in LIST_OF_ADMINS:
+            await context.bot.send_message(
+                chat_id=admin_chat_id, text=message, parse_mode=ParseMode.HTML
+            )
     
     def __format_documentation_page(self, documentation_page_num: int) -> str:
         return f"*{self.DOCUMENTATION[documentation_page_num][0]}*\n\n{self.DOCUMENTATION[documentation_page_num][1]}"
@@ -248,15 +285,6 @@ class Bot:
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(self.__format_documentation_page(0), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup)
-    
-    async def button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        query = update.callback_query
-        await query.answer()
-
-        keyboard = [[InlineKeyboardButton(content[0], callback_data=i) for i, content in enumerate(self.DOCUMENTATION)]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(text=self.__format_documentation_page(int(query.data)), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup)
     
     async def __respond_with_achievement_stickers(self, update: Update, context: CallbackContext, user_from_username: str, user_to_username: str, chat_name: str, chat_id: int, prompt: str, achievement_user_sticker_file_id: str, achievement_description_chat_sticker_file_id: str) -> None:
         bot: BT = context.bot
@@ -271,12 +299,13 @@ class Bot:
         self.application.add_handler(CommandHandler("unban", self.unban))
 
         # sticker set owners-only commands
-        # TODO: reset configuration
+        # TODO: reset
+        # TODO: transfer
         
         # default commands
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(CallbackQueryHandler(self.button))
+        self.application.add_handler(CallbackQueryHandler(self.documentation_button))
 
         # undefined stickerset chat commands
         self.application.add_handler(CommandHandler("own_stickers", self.own_stickers))
@@ -287,5 +316,7 @@ class Bot:
         self.application.add_handler(MessageHandler(filters.REPLY & filters.Sticker.ALL, self.on_sticker_reply))
         # TODO: implement notification message (if triggered, send a notification to all channels it was send to)
 
-        # Run the bot until the user presses Ctrl-C
+        # error handling
+        self.application.add_error_handler(self.error_handler)
+        
         self.application.run_polling(allowed_updates=Update.ALL_TYPES)

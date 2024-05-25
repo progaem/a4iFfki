@@ -1,6 +1,14 @@
 import random
 import string
 
+def generate_sticker_set_name_and_title(stickerset_type: str, bot_name: str, username: str, chat_name: str) -> tuple[str, str]:
+    assert stickerset_type == "CHAT" or stickerset_type == "USER"
+    
+    sticker_set_name = generate_sticker_set_name(stickerset_type.lower(), bot_name)
+    sticker_set_title = f"'{chat_name}"[:62] + "' achievements" if stickerset_type == "CHAT" else f"{username}'s achievements in '{chat_name}"[:62] + "'"
+    
+    return (sticker_set_name, sticker_set_title)
+
 def generate_sticker_set_name(prefix_name: str, bot_name: str):
     # Note: As per telegram API documentation https://docs.python-telegram-bot.org/en/v20.6/telegram.bot.html#telegram.Bot.create_new_sticker_set:
     # Stickerpack name can contain only english letters, digits and underscores.
