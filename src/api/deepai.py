@@ -3,7 +3,7 @@ import os
 
 from PIL import Image
 from io import BytesIO
-from utils.exceptions import DeepAIAPIError
+from common.exceptions import DeepAIAPIError
 
 
 class DeepAIAPI:

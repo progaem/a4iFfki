@@ -91,6 +91,14 @@ class WarningsProcessor:
         username = update.message.from_user.username 
         warning_message = f'Achievements are like rare jewels scattered throughout our lives, precious and unique. It\'s crucial to cherish their scarcity and significance. That\'s why we\'ve imposed a limit of {max_give_achievement_interractions} daily executions per individual. Exceeding this limit will prompt notifications such as this one. Accumulating {max_warnings_until_ban} warnings of this nature within a single day may result in permanent suspension from utilizing our bot. @{username}, we kindly ask for your cooperation in adhering to these guidelines.'
         return await self.__add_warning(update, "new_achievement", max_give_achievement_interractions, "new_achievement_invocations_exceed", max_warnings_until_ban, warning_message)
+    
+    async def add_inappropriate_language_warning(self, update: Update) -> bool:
+        max_warnings_until_ban = 20
+        
+        username = update.message.from_user.username
+        warning_message = f'@{username}, this bot relies on external APIs that also perform profanity checks. Frequent triggers of these checks could result in the suspension of the accounts powering our services. We kindly request that you refrain from using inappropriate language when interacting with the bot. Continued use of such language will result in similar warnings. Accumulating {max_warnings_until_ban} warnings within a single day may result in permanent suspension from utilizing our bot.'
+        return await self.__add_warning(update, "phrase_achievement_message", -1, "inappropriate_language_in_achievement_message", max_warnings_until_ban, warning_message)
+  
         
     async def __add_warning(self, update: Update, interraction_type: str, max_interractions: int, warning_type: str, warnings_limit: int, warning_message: str) -> bool:
         chat_id = update.message.chat_id

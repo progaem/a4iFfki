@@ -4,18 +4,18 @@ import logging
 import os
 import traceback
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, LinkPreviewOptions
 from telegram._bot import BT
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackContext, ContextTypes, CallbackQueryHandler
 from telegram.constants import ParseMode
 import telegram.ext.filters as filters
 
 from bot.access import LIST_OF_ADMINS, WarningsProcessor, restricted_to_admins, restricted_to_not_banned, restricted_to_stickerset_owners, restricted_to_undefined_stickerset_chats, restricted_to_defined_stickerset_chats
-from messaging.prompt_detector import PromptDetector
+from message.filter import LanguageFilter
 from bot.stickers import StickerManager
 from sticker.artist import StickerArtist
 from storage.postgres import PostgresDatabase
-from utils.utils import masked_print
+from common.utils import masked_print
 
 # Enable logging
 logging.basicConfig(
@@ -31,21 +31,24 @@ class Bot:
     DOCUMENTATION = [
         ("What is it?", "This is the Achievements Bot\.\nEver wanted to show appreciation for someone's _achievements_ in a chat? With this bot, you can create unique stickers representing their achievements and assign them directly\. Each chat will also have a sticker set to keep track of all the achievements awarded\."),
         ("Where are the stickers stored?", "Stickers are stored in specific Telegram sticker sets\. There's one sticker set for each person to track individual achievements, and another for the entire chat to monitor collective achievements\.\n\nTo manage these sets, one chat member _with a PREMIUM account_ must become the sticker set owner by sending /own\_stickers in the chat\.\n\nRemember, if you're the owner, DO NOT modify these stickers as it could disrupt the bot's functionality\."),
-        ("How to give a new achievement?", "To award a new achievement, reply to a message in the chat, using a specific keyword to activate the bot\. The bot will recognize the keyword, process the achievement, and post stickers representing it\—one from the individual's set and another from the chat's collective set\.\nThe stickers are AI\-generated based on the achievement's description\.\n\nCurrently, you can use phrases like `выдаю ачивку за \(текст достижения\)` or `drop an achievement for \(achievement message\)` to trigger the bot\."),
+        ("How to give a new achievement?", "To award a new achievement, reply to a message in the chat, using a specific keyword to activate the bot\. The bot will recognize the keyword, process the achievement, and post stickers representing it—one from the individual's set and another from the chat's collective set\.\nThe stickers are AI\-generated based on the achievement's description\.\n\nCurrently, you can use phrases like `выдаю ачивку за \(текст достижения\)` or `drop an achievement for \(achievement message\)` to trigger the bot\.  \([Full list of key phrases](https://github.com/progaem/a4iFfki/blob/master/resources/key.txt)\)"),
         ("How to give an existing achievement?", "Simply reply to a message with an achievement sticker from the chat's collective sticker set\. Every time you award the same achievement to a new person, the count under each description sticker increases\."),
         ("FAQ", """>Why did I receive a warning for excessive bot usage?
     To operate within a limited budget, there are usage caps: you can only grant two achievements per person per day\. Exceeding this limit can lead to an automatic ban\.
 
 >What if something goes wrong?
-    If the bot malfunctions, please create a ticket in our GitHub repository detailing the steps to replicate the issue\. Your contributions to improving the bot are also welcome\! Link: https://github\.com/progaem/a4iFfki""")
+    If the bot malfunctions, please create a ticket in our GitHub repository detailing the steps to replicate the issue\. Your contributions to improving the bot are also welcome\! Link: https://github\.com/progaem/a4iFfki
+
+>Is there a way I can support this project? ;\)
+    That's a great question, thank you for asking\! We are thinking of opening buymeacoffee account, follow our Github repository for updates\! <3""")
     ]
     
-    def __init__(self, database: PostgresDatabase, prompt_detector: PromptDetector, warnings_processor: WarningsProcessor, sticker_artist: StickerArtist, sticker_manager: StickerManager):
+    def __init__(self, database: PostgresDatabase, language_filter: LanguageFilter, warnings_processor: WarningsProcessor, sticker_artist: StickerArtist, sticker_manager: StickerManager):
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
         
         self.database = database
     
-        self.prompt_detector = prompt_detector
+        self.language_filter = language_filter
         
         self.warnings_processor = warnings_processor
         
@@ -126,7 +129,7 @@ class Bot:
         keyboard = [[InlineKeyboardButton(content[0], callback_data=i) for i, content in enumerate(self.DOCUMENTATION)]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await query.edit_message_text(text=self.__format_documentation_page(int(query.data)), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup)
+        await query.edit_message_text(text=self.__format_documentation_page(int(query.data)), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup, link_preview_options=LinkPreviewOptions(is_disabled=True))
     
     ### COMMANDS AVAILABLE ONLY TO CHATS WITH UNDEFINED STICKERSET OWNERS ###
     
@@ -183,12 +186,16 @@ class Bot:
         invoking_user_name = update.message.from_user.username
         cited_user_id = update.message.reply_to_message.from_user.id
         cited_user_username = update.message.reply_to_message.from_user.username
-        logger.info(f"{user_id} in {chat_id} mentioned выдаю ачивку replying to {cited_user_id} message")
+        logger.info(f"{user_id} in {chat_id} mentioned key word replying to {cited_user_id} message: {message_text}")
 
-        prompt = self.prompt_detector.detect(message_text)
+        prompt = self.language_filter.detect_prompt(message_text)
         if not prompt:
             await update.message.reply_text(
                 f'User @{invoking_user_name} mentioned one of the achievement granting key words in their reply to @{cited_user_username}! But prompt was not identified :(')
+            return
+        
+        if self.language_filter.check_for_inappropriate_language(message_text):
+            await self.warnings_processor.add_inappropriate_language_warning(update)
             return
 
         if await self.warnings_processor.add_give_achievement_warning(update):
@@ -284,7 +291,7 @@ class Bot:
         keyboard = [[InlineKeyboardButton(content[0], callback_data=i) for i, content in enumerate(self.DOCUMENTATION)]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(self.__format_documentation_page(0), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup)
+        await update.message.reply_text(self.__format_documentation_page(0), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup, link_preview_options=LinkPreviewOptions(is_disabled=True))
     
     async def __respond_with_achievement_stickers(self, update: Update, context: CallbackContext, user_from_username: str, user_to_username: str, chat_name: str, chat_id: int, prompt: str, achievement_user_sticker_file_id: str, achievement_description_chat_sticker_file_id: str) -> None:
         bot: BT = context.bot
@@ -312,7 +319,7 @@ class Bot:
         
         # public commands
         self.application.add_handler(CommandHandler("show", self.show_sticker_set))
-        self.application.add_handler(MessageHandler(filters.TEXT & filters.REPLY & filters.Regex('выдаю ачивку'), self.on_give))
+        self.application.add_handler(MessageHandler(filters.TEXT & filters.REPLY & (self.language_filter.construct_message_filter()), self.on_give))
         self.application.add_handler(MessageHandler(filters.REPLY & filters.Sticker.ALL, self.on_sticker_reply))
         # TODO: implement notification message (if triggered, send a notification to all channels it was send to)
 

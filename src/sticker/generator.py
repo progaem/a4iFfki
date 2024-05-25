@@ -4,7 +4,7 @@ import os
 from PIL import Image
 from api.deepai import DeepAIAPI
 from api.translate import GoogleTranslateAPI
-from utils.exceptions import StickerGeneratorError
+from common.exceptions import StickerGeneratorError
 
 # Enable logging
 logging.basicConfig(level=logging.INFO,

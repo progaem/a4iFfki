@@ -38,6 +38,11 @@ For restarting the bot without affecting the database services, use:
 docker-compose build --no-cache app && docker-compose up -d --no-deps --force-recreate app
 ```
 
+To monitor logs from telegram bot, run:
+```bash
+docker logs $(docker ps -aqf "name=app") -f
+```
+
 ## Contributing
 
 ### Contribution Guidelines

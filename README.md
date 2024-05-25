@@ -16,7 +16,7 @@ To begin managing stickers, a user with a PREMIUM account must take ownership by
 **Important:** The owner should not alter these stickers outside of the bot commands, as it could interfere with the bot's tracking capabilities.
 
 ### Assigning Achievements
-- **New Achievements:** Reply to a chat message with the trigger phrase (e.g., `выдаю ачивку за [achievement description]` or `drop an achievement for [achievement description]`). The bot will process the information and add appropriate stickers to both personal and group sets.
+- **New Achievements:** Reply to a chat message with the trigger phrase (e.g., `выдаю ачивку за [achievement description]` or `drop an achievement for [achievement description]`, here's[the link for full list of key phrases](https://github.com/progaem/a4iFfki/blob/master/resources/key.txt)). The bot will process the information and add appropriate stickers to both personal and group sets.
 - **Existing Achievements:** To assign an already established achievement, reply with its corresponding sticker from the group set. The system automatically updates the achievement count.
 
 ## FAQ

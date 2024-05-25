@@ -2,7 +2,7 @@ import re
 import os
 import httpx
 
-from utils.exceptions import GoogleAPIError
+from common.exceptions import GoogleAPIError
 
 
 class GoogleTranslateAPI:

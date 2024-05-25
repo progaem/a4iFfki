@@ -5,6 +5,10 @@ class ComponentError(Exception):
         self.component_error_type = component_error_type
         self.component_error_message = component_error_message
 
+class LanguageFilterError(ComponentError):
+    def __init__(self, message, component_error_type, component_message):
+        super().__init__(message, 'prompt-detector', component_error_type, component_message)
+
 class StickerGeneratorError(ComponentError):
     def __init__(self, message, component_error_type, component_message):
         super().__init__(message, 'sticker-generator', component_error_type, component_message)

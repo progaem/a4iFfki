@@ -4,7 +4,7 @@ from bot.access import WarningsProcessor
 from bot.stickers import StickerManager
 from bot.bot import Bot
 from storage.postgres import PostgresDatabase
-from messaging.prompt_detector import PromptDetector
+from message.filter import LanguageFilter
 from sticker.artist import StickerArtist
 from storage.s3 import ImageS3Storage
 from sticker.generator import StickerGenerator
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     sticker_generator = StickerGenerator(google_api, deepai_api)
     sticker_artist = StickerArtist(sticker_file_manager, sticker_generator)
 
-    prompt_detector = PromptDetector()
+    prompt_detector = LanguageFilter()
     
     warning_processor = WarningsProcessor(database)
     sticker_manager = StickerManager(database, sticker_artist)

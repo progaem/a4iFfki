@@ -1,10 +1,10 @@
 src/__pycache__/
 src/api/__pycache__/
 src/bot/__pycache__/
-src/messaging/__pycache__/
+src/message/__pycache__/
 src/sticker/__pycache__/
 src/storage/__pycache__/
-src/utils/__pycache__/
+src/common/__pycache__/
 .vscode/
 .idea/
 .snapshots/
