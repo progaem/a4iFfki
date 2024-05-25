@@ -1,4 +1,5 @@
 # a4iFfki Achievements Bot
+![Docker Image Version](https://img.shields.io/docker/v/rus2m/achievements-bot-app) ![pylint]()
 
 ## Introduction
 The **a4iFfki Achievements Bot** for Telegram is designed to recognize and celebrate individual and group achievements within chat environments. It allows users to create and assign unique stickers that symbolize specific achievements, enhancing engagement and interaction.
