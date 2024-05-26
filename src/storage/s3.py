@@ -1,18 +1,17 @@
-import logging
-
-import boto3
+"""
+This module handles all interractions with S3(Minio) database
+"""
 import io
 import os
 import string
 import random
 
 from PIL.Image import Image
+
+import boto3
 from botocore.exceptions import ClientError
 
-# Enable logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from common.exceptions import ImageS3StorageError
 
 
 class ImageS3Storage:
@@ -54,18 +53,14 @@ class ImageS3Storage:
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 raise FileNotFoundError(f"File '{file_path}' does not exist in bucket '{self.bucket_name}'.")
-            else:
-                raise Exception(f"Failed to download file '{file_path}' from the bucket '{self.bucket_name}: {e}")
+            raise ImageS3StorageError(f"Failed to download file '{file_path}' from the bucket '{self.bucket_name}", "download-file", str(e)) from e
 
     def __create_bucket(self, bucket_name: str) -> None:
         try:
             self.s3.create_bucket(Bucket=bucket_name)
-            logger.info("Successfully created bucket %s for storing stickers", bucket_name)
         except ClientError as e:
             error_code = e.response['Error']['Code']
-            if error_code == 'BucketAlreadyOwnedByYou':
-                logger.info(f"Bucket '{bucket_name}' already exists. Ignoring creation of it")
-            else:
+            if error_code != 'BucketAlreadyOwnedByYou':
                 raise Exception(f"Failed to create bucket: {e}")
 
     def __generate_file_name(self) -> str:

@@ -1,3 +1,6 @@
+"""
+This module handles all access restriction logic, including warning processing
+"""
 import logging
 
 from functools import wraps
@@ -16,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 ### HELPER COMMANDS, RESTRICTING VISBILITY TO METHODS ###
 
+# pylint: disable=fixme
 # TODO: add Misha
 LIST_OF_ADMINS = [249427415]
 
@@ -71,35 +75,59 @@ def restricted_to_defined_stickerset_chats(func):
     return wrapped
 
 class WarningsProcessor:
-    BAN_MESSAGE = "@{user_name} you exceeded the limit of {warnings_limit}, so as we warned previously, we permanently ban you from utilizing this bot"
-    
+    BAN_MESSAGE = (
+        "@{user_name} you exceeded the limit of {warnings_limit}, so as we warned previously, "
+        "we permanently ban you from utilizing this bot"
+    )
+
     def __init__(self, database: PostgresDatabase):
         self.database = database
-    
+
     async def add_show_stickers_warning(self, update: Update) -> bool:
+        """Adds a warning for using show command too frequently"""
         max_show_stickers_interractions = 20
         max_warnings_until_ban = 5
         
         username = update.message.from_user.username 
-        warning_message = f'@{username}, we\'ve noticed unusual activity from your account, currently there is a limit of {max_show_stickers_interractions} daily /show executions per individual. Exceeding this limit will prompt notifications such as this one. Accumulating {max_warnings_until_ban} warnings of this nature within a single day may result in permanent suspension from utilizing our bot.'
+        warning_message = (
+            f'@{username}, we\'ve noticed unusual activity from your account, currently there is a limit'
+            f'of {max_show_stickers_interractions} daily /show executions per individual. Exceeding this'
+            f'limit will prompt notifications such as this one. Accumulating {max_warnings_until_ban}'
+            f'warnings of this nature within a single day may result in permanent suspension from utilizing our bot.'
+        )
         return await self.__add_warning(update, "show_stickers", max_show_stickers_interractions, "show_stickers_invocations_exceed", max_warnings_until_ban, warning_message)
     
     async def add_give_achievement_warning(self, update: Update) -> bool:
+        """Adds a warning for invoking achievement giving command too frequently"""
         max_give_achievement_interractions = 2
-        max_warnings_until_ban = 5
+        max_warnings_until_ban = 10
         
         username = update.message.from_user.username 
-        warning_message = f'Achievements are like rare jewels scattered throughout our lives, precious and unique. It\'s crucial to cherish their scarcity and significance. That\'s why we\'ve imposed a limit of {max_give_achievement_interractions} daily executions per individual. Exceeding this limit will prompt notifications such as this one. Accumulating {max_warnings_until_ban} warnings of this nature within a single day may result in permanent suspension from utilizing our bot. @{username}, we kindly ask for your cooperation in adhering to these guidelines.'
+        warning_message = (
+            f'Achievements are like rare jewels scattered throughout our lives, precious and unique. '
+            f'It\'s crucial to cherish their scarcity and significance. That\'s why we\'ve imposed '
+            f'a limit of {max_give_achievement_interractions} daily executions per individual. Exceeding '
+            f'this limit will prompt notifications such as this one. Accumulating {max_warnings_until_ban}'
+            f'warnings of this nature within a single day may result in permanent suspension from utilizing'
+            f'our bot. @{username}, we kindly ask for your cooperation in adhering to these guidelines.'
+        )
         return await self.__add_warning(update, "new_achievement", max_give_achievement_interractions, "new_achievement_invocations_exceed", max_warnings_until_ban, warning_message)
     
     async def add_inappropriate_language_warning(self, update: Update) -> bool:
+        """Adds a warning for use of inappropriate language in the achievement message"""
         max_warnings_until_ban = 20
         
         username = update.message.from_user.username
-        warning_message = f'@{username}, this bot relies on external APIs that also perform profanity checks. Frequent triggers of these checks could result in the suspension of the accounts powering our services. We kindly request that you refrain from using inappropriate language when interacting with the bot. Continued use of such language will result in similar warnings. Accumulating {max_warnings_until_ban} warnings within a single day may result in permanent suspension from utilizing our bot.'
+        warning_message = (
+            f'@{username}, this bot relies on external APIs that also perform profanity checks. '
+            f'Frequent triggers of these checks could result in the suspension of the accounts '
+            f'powering our services. We kindly request that you refrain from using inappropriate '
+            f'language when interacting with the bot. Continued use of such language will result in '
+            f'similar warnings. Accumulating {max_warnings_until_ban} warnings within a single day '
+            f'may result in permanent suspension from utilizing our bot.'
+        )
         return await self.__add_warning(update, "phrase_achievement_message", -1, "inappropriate_language_in_achievement_message", max_warnings_until_ban, warning_message)
-  
-        
+
     async def __add_warning(self, update: Update, interraction_type: str, max_interractions: int, warning_type: str, warnings_limit: int, warning_message: str) -> bool:
         chat_id = update.message.chat_id
         user_id = update.message.from_user.id
@@ -113,8 +141,7 @@ class WarningsProcessor:
             self.database.ban(user_name)
             await update.message.reply_text(self.BAN_MESSAGE.format(user_name=user_name, warnings_limit=warnings_limit))
             return True
-        elif warnings > 0:
+        if warnings > 0:
             await update.message.reply_text(warning_message)
             return True
-        else:
-            return False
+        return False

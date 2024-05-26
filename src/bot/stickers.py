@@ -1,3 +1,4 @@
+"""This module handles sticker management in Telegram"""
 import os
 
 from telegram import InputSticker
@@ -12,7 +13,7 @@ from storage.postgres import ChatSticker, PostgresDatabase, UserSticker
 class StickerManager:
     ACHIEVEMENT_EMOJI = "🥇"
     TELEGRAM_STICKERS_LINE_COUNT = 5
-    
+
     def __init__(self, database: PostgresDatabase, sticker_artist: StickerArtist):
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
 
@@ -33,9 +34,19 @@ class StickerManager:
 
         (chat_stickers, session) = self.database.get_chat_sticker_set(chat_id)
 
-        (chat_sticker_set_name, stickers_to_add, last_achievement_index) = await self.__upload_stickers_to_stickerset(stickers_owner, chat_stickers, "", chat_name, "CHAT", achievement_sticker, chat_description_sticker, (), context)
+        (chat_sticker_set_name, stickers_to_add, last_achievement_index) = await self.__upload_stickers_to_stickerset(
+            stickers_owner,
+            chat_stickers,
+            "",
+            chat_name,
+            "CHAT",
+            achievement_sticker,
+            chat_description_sticker,
+            (),
+            context
+        )
         sticker_set = await bot.get_sticker_set(chat_sticker_set_name)
-        
+
         # update stickers in the database according to chat stickerset layout
         chat_stickers_to_update = []
         for sticker_index, sticker_file in stickers_to_add.items():
@@ -43,9 +54,11 @@ class StickerManager:
             sticker_type = "empty"
             times_achieved = None
             engraving_text = None
-            if sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) < self.TELEGRAM_STICKERS_LINE_COUNT and sticker_index <= last_achievement_index:
+            if (sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) < self.TELEGRAM_STICKERS_LINE_COUNT
+                    and sticker_index <= last_achievement_index):
                 sticker_type = "achievement"
-            elif sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) >= self.TELEGRAM_STICKERS_LINE_COUNT and sticker_index <= last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT:
+            elif (sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) >= self.TELEGRAM_STICKERS_LINE_COUNT
+                    and sticker_index <= last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT):
                 sticker_type = "description"
                 engraving_text = prompt
                 times_achieved = 1
@@ -68,9 +81,9 @@ class StickerManager:
         session.commit()
         session.close()
         self.database.create_chat_stickers_or_update_if_exist(chat_stickers_to_update)
-        
+
         return sticker_set.stickers[last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT].file_id
-        
+
     async def increase_counter_on_chat_description_sticker(self, stickers_owner: int, chat_id: int, old_description_sticker_file_id, chat_sticker_set_name: str, sticker_index: int, description_sticker_engraving: str, times_achieved: int, context: CallbackContext) -> str:
         """Increases counter on the achivement's description sticker by 1 and returns updated sticker's file_id"""
         bot: BT = context.bot
@@ -87,7 +100,7 @@ class StickerManager:
         sticker_set = await bot.get_sticker_set(chat_sticker_set_name)
         await bot.set_sticker_position_in_set(sticker_set.stickers[-1].file_id, sticker_index)
         sticker_set = await bot.get_sticker_set(chat_sticker_set_name)
-        
+
         # update sticker in the database
         sticker = sticker_set.stickers[sticker_index]
         chat_sticker_to_update = ChatSticker(
@@ -114,11 +127,21 @@ class StickerManager:
 
         user_profile_sticker = await self.__create_profile_sticker(context, user_id, user_name)
         user_profile_description_sticker  = self.sticker_artist.draw_persons_stickerset_description_sticker(user_name, chat_name)
-        (user_sticker_set_name, stickers_to_add, last_achievement_index) = await self.__upload_stickers_to_stickerset(stickers_owner, user_stickers, user_name, chat_name, "USER", achievement_sticker, user_description_sticker, (user_profile_sticker, user_profile_description_sticker), context)
+        (user_sticker_set_name, stickers_to_add, last_achievement_index) = await self.__upload_stickers_to_stickerset(
+            stickers_owner,
+            user_stickers,
+            user_name,
+            chat_name,
+            "USER",
+            achievement_sticker,
+            user_description_sticker,
+            (user_profile_sticker, user_profile_description_sticker),
+            context
+        )
 
         # get the updated sticker set from telegram (needed to get file_id and file_unique_id for each sticker)
         sticker_set = await bot.get_sticker_set(user_sticker_set_name)
-        
+
         # update stickers in the database according to users stickerset layout
         user_stickers_to_update = []
         for sticker_index, sticker_file in stickers_to_add.items():
@@ -129,9 +152,11 @@ class StickerManager:
                 sticker_type = "profile"
             elif sticker_index == self.TELEGRAM_STICKERS_LINE_COUNT:
                 sticker_type = "profile_description"
-            elif sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) < self.TELEGRAM_STICKERS_LINE_COUNT and sticker_index <= last_achievement_index:
+            elif (sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) < self.TELEGRAM_STICKERS_LINE_COUNT
+                    and sticker_index <= last_achievement_index):
                 sticker_type = "achievement"
-            elif sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) >= self.TELEGRAM_STICKERS_LINE_COUNT and sticker_index <= last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT:
+            elif (sticker_index % (self.TELEGRAM_STICKERS_LINE_COUNT*2) >= self.TELEGRAM_STICKERS_LINE_COUNT
+                    and sticker_index <= last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT):
                 sticker_type = "description"
                 engraving_text = prompt
             user_stickers_to_update.append(
@@ -162,7 +187,7 @@ class StickerManager:
         stickers: list[ChatSticker] | list[UserSticker],
         user_name: str, # optional, could be null if used for adding chat stickers
         chat_name: str,
-        sticker_set_type: str, #TODO: to make a enum of CHAT and USER
+        sticker_set_type: str, # "CHAT" or "USER"
         achievement_sticker: tuple[str, bytes],
         description_sticker: tuple[str, bytes],
         default_stickers_if_sticker_set_is_empty: tuple[tuple[str, bytes]], # could be empty if there is no stickers to be added as the initial ones
@@ -178,7 +203,7 @@ class StickerManager:
         bot: BT = context.bot
         last_achievement_index = 0
         stickers_to_add = {}
-        
+
         if not stickers:
             # define stickers to create: achievement, 4 empty stickers, description, 4 empty stickers
             empty_sticker = self.sticker_artist.get_empty_sticker()
@@ -195,7 +220,13 @@ class StickerManager:
 
             # create a new sticker set with previously defined stickers
             (sticker_set_name, sticker_set_title) = generate_sticker_set_name_and_title(sticker_set_type, self.telgram_bot_name, user_name, chat_name)
-            await bot.create_new_sticker_set(stickers_owner, sticker_set_name, sticker_set_title, [InputSticker(sticker[1], [self.ACHIEVEMENT_EMOJI], StickerFormat.STATIC) for sticker in stickers_to_add.values()], StickerFormat.STATIC)
+            await bot.create_new_sticker_set(
+                stickers_owner,
+                sticker_set_name,
+                sticker_set_title,
+                [InputSticker(sticker[1], [self.ACHIEVEMENT_EMOJI], StickerFormat.STATIC) for sticker in stickers_to_add.values()],
+                StickerFormat.STATIC
+            )
         else:
             sticker_set_name = stickers[0].sticker_set_name
             last_achievement_index = max(sticker.index_in_sticker_set for sticker in stickers if sticker.type in {"achievement", "profile"})
@@ -217,7 +248,7 @@ class StickerManager:
                     last_achievement_index + 1: achievement_sticker,
                     last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT + 1: description_sticker
                 }
-                
+
                 # replace two empty stickers next to last achievement and description stickers with the new ones
                 await bot.delete_sticker_from_set(stickers[last_achievement_index + self.TELEGRAM_STICKERS_LINE_COUNT + 1].file_id)
                 await bot.delete_sticker_from_set(stickers[last_achievement_index + 1].file_id)
@@ -233,11 +264,11 @@ class StickerManager:
     async def __create_profile_sticker(self, context: CallbackContext, user_id: int, user_username: str) -> tuple[str, bytes]:
         bot: BT = context.bot
         profile_photos = await bot.get_user_profile_photos(user_id, limit=1)
-        
+
         # In case profile doesn't have any photos or the user doesn't allow ALL other users to see their profile photos - generate description instead
         if not profile_photos.photos:
             return self.sticker_artist.draw_sticker_from_username(f"@{user_username}")
-        
+
         prepared_for_download_photo = await bot.get_file(profile_photos.photos[0][0].file_id)
         photo = await prepared_for_download_photo.download_as_bytearray()
         return self.sticker_artist.draw_sticker_from_profile_picture(bytes(photo))

@@ -1,11 +1,12 @@
-from PIL import Image, ImageDraw, ImageFont
+from enum import Enum
 import io
 import math
 import random
 
-from enum import Enum
+from PIL import Image, ImageDraw, ImageFont
+
+from sticker.generator import StickerGenerator
 from storage.s3 import ImageS3Storage
-from sticker.generator import StickerGenerator, StickerGeneratorError
 
 class StickerType(Enum):
     EMPTY = 1
@@ -76,19 +77,19 @@ class StickerArtist:
         image = self.__expand2square(image, self.CIRCLE_COLOR).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
         image = self.__mask_circle_transparent(image)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
-    
+
     def draw_sticker_from_username(self, username: str) -> tuple[str, bytes]:
         """Draws a sticker from username"""
         image = self.__generate_sticker_of_random_color()
         image = self.__add_text_on_sticker(image, username, 0)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
-    
+
     def draw_persons_stickerset_description_sticker(self, username: str, chat_name: str) -> tuple[str, bytes]:
         """Draws description sticker for persons stickerset"""
         description = f"Stickerset of @{username}'s achievements for chat \'{chat_name}\'"
         # TODO: make number the place in total amount of achievements in group
         return self.draw_chat_description_sticker(description, 1)
-    
+
     def __generate_empty_sticker(self) -> tuple[str, bytes]:
         image = self.__generate_sticker_of_color(self.DEFAULT_CIRCLE_COLOR)
         return self.sticker_file_manager.save_and_convert_to_bytes(image, self.EMPTY_STICKER_PATH)
@@ -121,7 +122,7 @@ class StickerArtist:
         red_color = random.randint(80, 200)
         green_color = random.randint(80, 200)
         blue_color = random.randint(80, 200)
-        
+
         return self.__generate_sticker_of_color((red_color, green_color, blue_color, 255))
 
     def __generate_sticker_of_color(self, color) -> Image:
@@ -215,9 +216,9 @@ class StickerArtist:
                 count = count + len(word) + 1
                 if count > max_symbols:
                     count = len(word) + 1
-                    max_symbols = max_symbols - 2  # because it's a circle each time max number of symbols shrinks
+                    # because it's a circle each time max number of symbols shrinks
+                    max_symbols = max_symbols - 2
                     description += f"\n{word} "
                 else:
                     description += word + " "
         return description
-
