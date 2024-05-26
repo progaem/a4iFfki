@@ -48,7 +48,7 @@ class Bot:
     Sorry to hear that, we are working on making the bot more resilient to errors in the updates\.\n\nFor now the only solution is to run /reset command \(_it's only available to stickerset owners_\) that would reset all the information about your stickers of your chat and start over :\(
 
 >Is there a way I can support this project? ;\)
-    That's a great question, thank you for asking\! We are thinking of opening buymeacoffee account, follow our Github repository for updates\! <3""")
+    Absolutely, and thanks for asking\! We recently set up a  [Buy Me a Coffee account](https://buymeacoffee.com/progaem), where you can support our project if you choose to\. Any support is entirely optional but greatly appreciated\! <3""")
     ]
     # pylint: enable=all
 
