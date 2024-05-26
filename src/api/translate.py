@@ -11,7 +11,7 @@ from common.exceptions import GoogleAPIError
 class GoogleTranslateAPI:
     """This class handles all requests to the Google Translate API"""
     GOOGLE_TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
-    GOOGLE_TRANSLATE_API_MAXIMUM_STRINGS = 128 
+    GOOGLE_TRANSLATE_API_MAXIMUM_STRINGS = 128
     GOOGLE_TRANSLATE_API_TIMEOUT = 60.0
 
     def __init__(self):
@@ -32,11 +32,11 @@ class GoogleTranslateAPI:
             f"Number of strings passed to v2/translate Google API shouldn't exceed "
             f"{self.GOOGLE_TRANSLATE_API_MAXIMUM_STRINGS}"
         )
-        
+
         # pylint: disable=fixme
         # TODO: add number of characters `len(achievement_message)` to pricing statistics
         # (free up to 500.000 per month, from 500.000 20$ every 1 mil characters)
-        
+
         # Try invoking Google Translate API
         try:
             response = await self.__invoke_translate_api(text_to_translate)
@@ -44,13 +44,16 @@ class GoogleTranslateAPI:
         # Handle exceptions
         except httpx.TimeoutException as e:
             raise GoogleAPIError(
-                "Timeout occurred while invoking Google Translate API", "timeout", str(e)) from e
+                "Timeout occurred while invoking Google Translate API", "timeout", str(e)
+            ) from e
         except httpx.NetworkError as e:
             raise GoogleAPIError(
-                "Failed to establish connection with Google Translate API", "network", str(e)) from e
+                "Failed to establish connection with Google Translate API", "network", str(e)
+            ) from e
         except Exception as e:
             raise GoogleAPIError(
-                "Unexpected error occurred while invoking Google Translate API", "other", str(e)) from e
+                "Unexpected error occurred while invoking Google Translate API", "other", str(e)
+            ) from e
         # pylint: disable=fixme
         # TODO: Add detected language `response['data']['translations']['detectedSourceLanguage']` to usage statistics
         translations_array = response.json()['data']['translations']

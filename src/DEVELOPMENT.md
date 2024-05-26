@@ -20,7 +20,7 @@ Ensure you have the following installed:
 Fill in the `devo.conf` file with the necessary credentials:
 - **PostgreSQL and MinIO:** Credentials and connection details are required to start these services locally.
 - **Telegram Bot:** Credentials obtained from @BotFather to configure your instance of the bot.
-- **(Optional) API Keys:** Google Translate and DeepAI API keys are _optional_ and can be substituted with a manual sticker generation algorithm as detailed in the comments within [sticker/artist.py](sticker/artist.py#L65).
+- **(Optional) API Keys:** Google Translate and DeepAI API keys are _optional_ and can be substituted with a manual sticker generation algorithm as detailed in the comments within [sticker/artist.py](sticker/artist.py#L76).
 
 ### Running the Bot
 To launch the bot within Docker, execute:

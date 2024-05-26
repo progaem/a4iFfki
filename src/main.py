@@ -31,5 +31,5 @@ if __name__ == "__main__":
 
     warning_processor = WarningsProcessor(database)
     sticker_manager = StickerManager(database, sticker_artist)
-    bot = Bot(database, language_filter, warning_processor, sticker_artist, sticker_manager)
+    bot = Bot(database, sticker_file_manager, language_filter, warning_processor, sticker_artist, sticker_manager)
     bot.run()

@@ -17,6 +17,7 @@ from bot.access import LIST_OF_ADMINS, WarningsProcessor, restricted_to_admins, 
 from bot.stickers import StickerManager
 
 from message.filter import LanguageFilter
+from storage.s3 import ImageS3Storage
 from sticker.artist import StickerArtist
 from storage.postgres import PostgresDatabase
 from common.utils import masked_print
@@ -31,8 +32,7 @@ logger = logging.getLogger(__name__)
 
 
 class Bot:
-    # pylint: disable=no-member
-    # TODO: Fetch from README.md instead of keeping in-memory (?)
+    # pylint: disable=all
     DOCUMENTATION = [
         ("What is it?", "This is the Achievements Bot\.\nEver wanted to show appreciation for someone's _achievements_ in a chat? With this bot, you can create unique stickers representing their achievements and assign them directly\. Each chat will also have a sticker set to keep track of all the achievements awarded\."),
         ("Where are the stickers stored?", "Stickers are stored in specific Telegram sticker sets\. There's one sticker set for each person to track individual achievements, and another for the entire chat to monitor collective achievements\.\n\nTo manage these sets, one chat member _with a PREMIUM account_ must become the sticker set owner by sending /own\_stickers in the chat\.\n\nRemember, if you're the owner, DO NOT modify these stickers as it could disrupt the bot's functionality\."),
@@ -44,15 +44,19 @@ class Bot:
 >What if something goes wrong?
     If the bot malfunctions, please create a ticket in our GitHub repository detailing the steps to replicate the issue\. Your contributions to improving the bot are also welcome\! Link: https://github\.com/progaem/a4iFfki
 
+>I see that order of stickers is messed up in the stickerset, what else could I do to fix it?
+    Sorry to hear that, we are working on making the bot more resilient to errors in the updates\.\n\nFor now the only solution is to run /reset command \(_it's only available to stickerset owners_\) that would reset all the information about your stickers of your chat and start over :\(
+
 >Is there a way I can support this project? ;\)
     That's a great question, thank you for asking\! We are thinking of opening buymeacoffee account, follow our Github repository for updates\! <3""")
     ]
-    # pylint: enable=no-member
+    # pylint: enable=all
 
-    def __init__(self, database: PostgresDatabase, language_filter: LanguageFilter, warnings_processor: WarningsProcessor, sticker_artist: StickerArtist, sticker_manager: StickerManager):
+    def __init__(self, database: PostgresDatabase, sticker_file_manager: ImageS3Storage, language_filter: LanguageFilter, warnings_processor: WarningsProcessor, sticker_artist: StickerArtist, sticker_manager: StickerManager):
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
 
         self.database = database
+        self.sticker_file_manager = sticker_file_manager
 
         self.language_filter = language_filter
 
@@ -96,7 +100,25 @@ class Bot:
     @restricted_to_stickerset_owners
     async def reset(self, update: Update, context: CallbackContext) -> None:
         """Resets the achievements progress in the chat and deletes stickerset from the user"""
-        pass
+        logger.info("reset was invoked")
+        bot: BT = context.bot
+    
+        chat_id = update.message.chat_id
+        username = update.message.from_user.username
+
+        sticker_sets_to_remove = self.database.all_stickerset_names(chat_id)
+        for sticker_set_name in sticker_sets_to_remove:
+            await bot.delete_sticker_set(sticker_set_name)
+
+        files_to_remove = self.database.all_sticker_file_paths(chat_id)
+        (_, _, _) = self.database.remove_all(chat_id)
+        self.sticker_file_manager.remove_all(files_to_remove)
+        
+        await update.message.reply_text(
+            f"@{username}, as per your request, all stickers for this chat were reset and sticker sets deleted. "
+            f"Also you've been unassigned from sticker set owner role in this chat.\n\nAll bot features now "
+            f"are unavailable again, until new sticker set owner would be chosen by /own_stickers command"
+        )
 
     @restricted_to_stickerset_owners
     async def transfer(self, update: Update, context: CallbackContext) -> None:
@@ -120,8 +142,8 @@ class Bot:
             await bot.send_message(
                 chat_id,
                 (
-                    "*Reminder:*\n\nTo access additional features of the bot beyond the /start and /help commands, _"
-                    "please designate a sticker set owner for this chat_ by using the /own\_stickers command",
+                    "*Reminder:*\n\nTo access additional features of the bot beyond the /start and /help commands, "
+                    "_please designate a sticker set owner for this chat_ by using the /own\_stickers command"
                 ),
                 parse_mode=ParseMode.MARKDOWN_V2)
 
@@ -234,6 +256,10 @@ class Bot:
         if self.language_filter.check_for_inappropriate_language(message_text):
             await self.warnings_processor.add_inappropriate_language_warning(update)
             return
+        
+        if self.language_filter.check_for_message_length(prompt):
+            await self.warnings_processor.add_too_long_message_warning(update)
+            return
 
         if await self.warnings_processor.add_give_achievement_warning(update):
             return
@@ -297,7 +323,7 @@ class Bot:
                 achievement_sticker_info = index_based_lookup[sticker_index]
                 description_sticker_info = index_based_lookup[sticker_index + 5]
 
-                achievement_sticker = self.sticker_artist.sticker_file_manager.get_bytes_from_path(achievement_sticker_info.file_path)
+                achievement_sticker = self.sticker_file_manager.get_bytes_from_path(achievement_sticker_info.file_path)
                 user_description_sticker = self.sticker_artist.draw_description_sticker(description_sticker_info.engraving_text)
 
                 # add and update stickers
@@ -373,6 +399,7 @@ class Bot:
         self.application.add_handler(CommandHandler("unban", self.unban))
 
         # sticker set owners-only commands
+        self.application.add_handler(CommandHandler("reset", self.reset))
         
         # default commands
         self.application.add_handler(CommandHandler("start", self.start))

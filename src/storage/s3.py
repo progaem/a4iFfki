@@ -52,8 +52,33 @@ class ImageS3Storage:
         except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code == '404':
-                raise FileNotFoundError(f"File '{file_path}' does not exist in bucket '{self.bucket_name}'.")
-            raise ImageS3StorageError(f"Failed to download file '{file_path}' from the bucket '{self.bucket_name}", "download-file", str(e)) from e
+                raise FileNotFoundError(
+                    f"File '{file_path}' does not exist in bucket '{self.bucket_name}'."
+                ) from e
+            raise ImageS3StorageError(
+                f"Failed to download file '{file_path}' from the bucket '{self.bucket_name}",
+                "download-file",
+                str(e)
+            ) from e
+    
+    def remove_all(self, file_paths_to_remove: list[str]) -> None:
+        """Removes all files located at the file paths"""
+        try:
+            fomatted_file_entries = [
+                {'Key': file_path } for file_path in file_paths_to_remove
+            ]
+            self.s3.delete_objects(
+                Bucket=self.bucket_name,
+                Delete={
+                    'Objects': fomatted_file_entries,
+                },
+            )
+        except Exception as e:
+            raise ImageS3StorageError(
+                f"Failed to delete files",
+                "delete-objects",
+                str(e)
+            ) from e
 
     def __create_bucket(self, bucket_name: str) -> None:
         try:
@@ -61,7 +86,11 @@ class ImageS3Storage:
         except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code != 'BucketAlreadyOwnedByYou':
-                raise Exception(f"Failed to create bucket: {e}")
+                raise ImageS3StorageError(
+                    f"Failed to create bucket:",
+                    "create-bucket",
+                    str(e)
+                ) from e
 
     def __generate_file_name(self) -> str:
         return ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))

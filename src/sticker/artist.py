@@ -29,7 +29,7 @@ class StickerArtist:
     STICKER_ARC_WIDTH = 10  # Width of the arc
     FONT_SIZE = 30  # TODO: make a range
     FONT_PATH = "../resources/GothamProBlack.ttf"
-    # With default font size {FONT_SIZE}, the maximum characters that would fit into line without new spaces
+    # With {FONT_SIZE}, the maximum characters that would fit into line without new spaces
     MAX_SYMBOLS_IN_LINE = 25
     EMPTY_STICKER_PATH = "sticker_files/empty.png"
 
@@ -52,13 +52,23 @@ class StickerArtist:
         green_color = random.randint(60, 170)
         blue_color = random.randint(60, 170)
 
-        image = self.__generate_sticker_of_gradient((red_color, green_color, blue_color), self.OUTER_GROUP_STICKER_COLOR)
+        image = self.__generate_sticker_of_gradient(
+            (red_color, green_color, blue_color),
+            self.OUTER_GROUP_STICKER_COLOR
+        )
         image = self.__add_text_on_sticker(image, description, 0)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
-    def draw_chat_description_sticker(self, description: str, number_of_people_achieved: int) -> tuple[str, bytes]:
+    def draw_chat_description_sticker(
+        self,
+        description: str,
+        number_of_people_achieved: int
+    ) -> tuple[str, bytes]:
         """Draws a description sticker for achievement with number of people achieved it"""
-        image = self.__generate_sticker_of_gradient(self.INNER_GROUP_STICKER_COLOR, self.OUTER_GROUP_STICKER_COLOR)
+        image = self.__generate_sticker_of_gradient(
+            self.INNER_GROUP_STICKER_COLOR,
+            self.OUTER_GROUP_STICKER_COLOR
+        )
         image = self.__add_number_with_arc_on_sticker(image, number_of_people_achieved)
         image = self.__add_text_on_sticker(image, description, 2 * (1 - self.STICKER_ARC_MARGIN))
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
@@ -74,7 +84,10 @@ class StickerArtist:
     def draw_sticker_from_profile_picture(self, image: bytes) -> tuple[str, bytes]:
         """Draws a sticker from profile picture"""
         image = Image.open(io.BytesIO(image))
-        image = self.__expand2square(image, self.CIRCLE_COLOR).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
+        image = self.__expand2square(
+            image,
+            self.CIRCLE_COLOR
+        ).resize((self.WIDTH, self.HEIGHT), Image.LANCZOS)
         image = self.__mask_circle_transparent(image)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
@@ -84,7 +97,11 @@ class StickerArtist:
         image = self.__add_text_on_sticker(image, username, 0)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
-    def draw_persons_stickerset_description_sticker(self, username: str, chat_name: str) -> tuple[str, bytes]:
+    def draw_persons_stickerset_description_sticker(
+        self,
+        username: str,
+        chat_name: str
+    ) -> tuple[str, bytes]:
         """Draws description sticker for persons stickerset"""
         description = f"Stickerset of @{username}'s achievements for chat \'{chat_name}\'"
         # TODO: make number the place in total amount of achievements in group
@@ -98,7 +115,7 @@ class StickerArtist:
         width, height = image.size
         if width == height:
             return image
-        elif width > height:
+        if width > height:
             result = Image.new(image.mode, (width, width), background_color)
             result.paste(image, (0, (width - height) // 2))
             return result
@@ -116,7 +133,7 @@ class StickerArtist:
         result.putalpha(mask)
 
         return result
-    
+
     def __generate_sticker_of_random_color(self) -> Image:
         # Choosing pleasant color palette
         red_color = random.randint(80, 200)
@@ -144,7 +161,8 @@ class StickerArtist:
         for y in range(self.HEIGHT):
             for x in range(self.WIDTH):
                 # Find the distance to the center
-                distance_to_center = math.sqrt((x - self.WIDTH / 2) ** 2 + (y - self.HEIGHT / 2) ** 2)
+                distance_to_center = math.sqrt(
+                    (x - self.WIDTH / 2) ** 2 + (y - self.HEIGHT / 2) ** 2)
 
                 # Make it on a scale from 0 to 1
                 distance_to_center = float(distance_to_center) / (math.sqrt(2) * self.WIDTH / 2)
@@ -157,14 +175,14 @@ class StickerArtist:
                 # Place the pixel
                 x_to_center = x - self.WIDTH / 2
                 y_to_center = y - self.HEIGHT / 2
-                if x_to_center * x_to_center + y_to_center * y_to_center <= self.WIDTH * self.WIDTH / 4:
+                squares_sum = x_to_center * x_to_center + y_to_center * y_to_center
+                if squares_sum <= self.WIDTH * self.WIDTH / 4:
                     image.putpixel((x, y), (int(r), int(g), int(b)))
 
         return image
 
     def __add_text_on_sticker(self, image: Image, text: str, margin_to_leave: float) -> Image:
         description = self.__adapt_text_to_fit_circle(text, margin_to_leave)
-        # TODO: understand how many words we can fit in the circle and throw an error on the bot level
         font = ImageFont.truetype(self.FONT_PATH, self.FONT_SIZE)
 
         draw = ImageDraw.Draw(image)
@@ -198,12 +216,14 @@ class StickerArtist:
         textbbox_val = draw.textbbox((0, 0), str(number), font=font)
         text_width = textbbox_val[2] - textbbox_val[0]
         text_height = textbbox_val[3] - textbbox_val[1]
-        text_position = ((self.WIDTH - text_width) // 2, self.HEIGHT * self.STICKER_ARC_MARGIN - text_height)
+        text_position = (
+            (self.WIDTH - text_width) // 2,
+            self.HEIGHT * self.STICKER_ARC_MARGIN - text_height
+        )
 
         draw.text(text_position, str(number), fill=self.TEXT_COLOR, font=font)
         return image
 
-    # TODO: experiment with changing font size
     def __adapt_text_to_fit_circle(self, description: str, margin_to_leave: float) -> str:
         """adapt text to fit in the circle"""
         max_symbols = self.MAX_SYMBOLS_IN_LINE * (1 - margin_to_leave)

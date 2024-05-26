@@ -46,10 +46,12 @@ class DeepAIAPI:
                 "Timeout occurred while invoking Deep AI API", "generate-timeout", str(e)) from e
         except httpx.NetworkError as e:
             raise DeepAIAPIError(
-                "Failed to establish connection with Deep AI API", "generate-network", str(e)) from e
+                "Failed to establish connection with Deep AI API", "generate-network", str(e)
+            ) from e
         except Exception as e:
             raise DeepAIAPIError(
-                "Unexpected error occurred while invoking Deep AI API", "generate-other", str(e)) from e
+                "Unexpected error occurred while invoking Deep AI API", "generate-other", str(e)
+            ) from e
 
         # Fetch the link to the generated image
         image_url = response.json()['output_url']
@@ -61,13 +63,22 @@ class DeepAIAPI:
         # Handle exceptions
         except httpx.TimeoutException as e:
             raise DeepAIAPIError(
-                "Timeout occurred while fetching generated image from Deep AI API", "download-timeout", str(e)) from e
+                "Timeout occurred while fetching generated image from Deep AI API",
+                "download-timeout",
+                str(e)
+            ) from e
         except httpx.NetworkError as e:
             raise DeepAIAPIError(
-                "Failed to establish connection with Deep AI API while fetching generated image", "download-network", str(e)) from e
+                "Failed to establish connection with Deep AI API while fetching generated image",
+                "download-network",
+                str(e)
+            ) from e
         except Exception as e:
             raise DeepAIAPIError(
-                "Unexpected error occurred while invoking Deep AI API while fetching generated image", "download-other", str(e)) from e
+                "Unexpected error occurred while invoking Deep AI API while fetching generated image",
+                "download-other",
+                str(e)
+            ) from e
 
         # Convert donwloaded image to bytes
         image = Image.open(BytesIO(image.content))
@@ -88,7 +99,7 @@ class DeepAIAPI:
                 headers={'api-key': self.api_key},
                 timeout=60.0
             )
-    
+
     async def __invoke_download_image_api(self, image_url: str) -> httpx.Response:
         """Wrapper around call to fetch image from url"""
         async with httpx.AsyncClient() as client:

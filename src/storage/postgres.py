@@ -118,7 +118,11 @@ class WarningMessage(Base):
         Text,
         nullable=True,
         comment="The type of warnings that was given to the user (If null - the entry means just an invocation)")
-    timestamp = Column(DateTime(timezone=True), nullable=False,  server_default=func.now(), comment="The timestamp of the warning")
+    timestamp = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="The timestamp of the warning")
 
     def __repr__(self):
         return (
@@ -130,7 +134,11 @@ class BannedUser(Base):
     __tablename__ = 'banned_users'
 
     username = Column(Text, nullable=False, primary_key=True, comment="the username")
-    timestamp = Column(DateTime(timezone=True), nullable=False,  server_default=func.now(), comment="The timestamp of the ban")
+    timestamp = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="The timestamp of the ban")
 
     def __repr__(self):
         return f"BannedUser(\n\tusername={self.username},\n\ttimestamp={self.timestamp})"
@@ -155,7 +163,15 @@ class PostgresDatabase:
 
         logger.info("Connected to Postgres")
 
-    def save_prompt_message(self, chat_id, user_id, replied_user_id, message_text, prompt) -> None:
+    def save_prompt_message(
+        self,
+        chat_id,
+        user_id,
+        replied_user_id,
+        message_text,
+        prompt
+    ) -> None:
+        """Adds the text to the list of achievement messages"""
         session = Session(self.engine)
         achievement = AchievementMessage(
             chat_id = chat_id,
@@ -176,10 +192,12 @@ class PostgresDatabase:
                 .all()
         )
 
-        # We are forced to return session from here to allow manipulations over ChatSticker objects
+        # We are forced to return session from here
+        #   to allow manipulations over ChatSticker objects
         return result, session
 
     def get_user_sticker_set_for_chat(self, user_id: int, chat_id: int) -> tuple[list[UserSticker], Session]:
+        """"Gets ordered list of user's stickers for the chat"""
         session = Session(self.engine)
         result = (
             session.query(UserSticker)
@@ -189,10 +207,12 @@ class PostgresDatabase:
                 .all()
         )
 
-        # We are forced to return session from here to allow manipulations over UserSticker objects
+        # We are forced to return session from here
+        #   to allow manipulations over UserSticker objects
         return result, session
 
     def get_chat_sticker_set_name(self, chat_id: int) -> str:
+        """Gets stickerset owner from chat's sticker"""
         session = Session(self.engine)
         result = (
             session.query(ChatSticker.sticker_set_name)
@@ -206,6 +226,7 @@ class PostgresDatabase:
         return result
 
     def get_user_sticker_set_name(self, user_id: int, chat_id: int) -> str:
+        """Gets stickerset name from user's sticker for this chat"""
         session = Session(self.engine)
         result = (
             session.query(UserSticker.sticker_set_name)
@@ -220,6 +241,7 @@ class PostgresDatabase:
         return result
 
     def create_chat_stickers_or_update_if_exist(self, chat_stickers_to_update: list[ChatSticker]):
+        """Adds stickers to the list of chat stickers"""
         session = Session(self.engine)
         for sticker in chat_stickers_to_update:
             alias = aliased(ChatSticker)
@@ -249,6 +271,7 @@ class PostgresDatabase:
         session.close()
 
     def create_user_stickers_or_update_if_exist(self, user_stickers_to_update: list[UserSticker]):
+        """Adds stickers to the list of user stickers"""
         session = Session(self.engine)
         for sticker in user_stickers_to_update:
             alias = aliased(UserSticker)
@@ -277,6 +300,7 @@ class PostgresDatabase:
         session.close()
 
     def get_latest_achievement_index(self, chat_id: int) -> int:
+        """Gets the maximum of sticker set indices across chat stickers with type achievement"""
         session = Session(self.engine)
         result = (
             session.query(func.max(ChatSticker.index_in_sticker_set))
@@ -286,9 +310,10 @@ class PostgresDatabase:
         )
         session.commit()
         session.close()
-        return result
+        return int(result)
     
     def get_stickerset_owner(self, chat_id: int) -> int | None:
+        """Gets sticker set owner's id for the chat"""
         session = Session(self.engine)
         stickerset_owner_id = (
             session.query(StickersetOwner.user_id)
@@ -298,9 +323,10 @@ class PostgresDatabase:
         )
         session.commit()
         session.close()
-        return stickerset_owner_id
+        return int(stickerset_owner_id)
 
     def define_stickerset_owner(self, user_id: int, chat_id: int) -> None:
+        """Adds user to the list of sticker set owners for the chat"""
         session = Session(self.engine)
         session.add(StickersetOwner(user_id=user_id, chat_id=chat_id))
         session.commit()
@@ -308,6 +334,7 @@ class PostgresDatabase:
         return
 
     def is_stickerset_owner_defined_for_chat(self, chat_id: int) -> bool:
+        """Returns boolean whether there is any sticker set owner for this chat"""
         session = Session(self.engine)
         stickerset_owner_rows = (
             session.query(StickersetOwner.user_id)
@@ -318,10 +345,86 @@ class PostgresDatabase:
         session.close()
         return stickerset_owner_rows != 0
 
-    def add_warning(self, user_id: int, chat_id: int, interraction_type: str, max_attempts: int, warning_type: str) -> int:
-        """counts how many invocations of the type {interraction_type} user had with the bot.
+    def all_stickerset_names(self, chat_id: int) -> list[str]:
+        """Returns the list of all sticker set names related to this chat"""
+        session = Session(self.engine)
+        chat_sticker_set_names = [
+            result[0] for result in (
+                session.query(ChatSticker.sticker_set_name)
+                    .distinct()
+                    .filter(ChatSticker.chat_id == chat_id)
+                    .all()
+            )
+        ]
+        user_sticker_set_names = [
+            result[0] for result in (
+                session.query(UserSticker.sticker_set_name)
+                    .distinct()
+                    .filter(UserSticker.chat_id == chat_id)
+                    .all()
+            )
+        ]
+        session.commit()
+        session.close()
 
-        if it exceeded {max_attempts}, the warning of the type {warning_type} will be added to the user
+        return chat_sticker_set_names + user_sticker_set_names
+
+    def all_sticker_file_paths(self, chat_id: int) -> list[str]:
+        """Returns the list of S3 files related to the chat"""
+        session = Session(self.engine)
+
+        chat_stickerset_files = [
+            result[0] for result in (
+                session.query(ChatSticker.file_path)
+                    .filter(ChatSticker.chat_id == chat_id)
+                    .all()
+            )
+        ]
+        user_stickerset_files = [
+            result[0] for result in (
+                session.query(UserSticker.file_path)
+                    .filter(UserSticker.chat_id == chat_id)
+                    .all()
+            )
+        ]
+
+        session.commit()
+        session.close()
+
+        return chat_stickerset_files + user_stickerset_files
+
+    def remove_all(self, chat_id: int) -> tuple[str, str, str]:
+        """Removes all data related to the chat"""
+        session = Session(self.engine)
+
+        deleted_chat_stickers = (
+            session.query(ChatSticker)
+                .filter(ChatSticker.chat_id == chat_id)
+                .delete()
+        )
+        deleted_user_stickers = (
+            session.query(UserSticker)
+                .filter(UserSticker.chat_id == chat_id)
+                .delete()
+        )
+        deleted_sticker_set_owners = (
+            session.query(StickersetOwner)
+                .filter(StickersetOwner.chat_id == chat_id)
+                .delete()
+        )
+
+        session.commit()
+        session.close()
+        return (deleted_chat_stickers, deleted_user_stickers, deleted_sticker_set_owners)
+
+    def add_warning(
+        self,
+        user_id: int,
+        chat_id: int, interraction_type: str, max_attempts: int, warning_type: str) -> int:
+        """Counts how many invocations of the type {interraction_type} user had with the bot.
+
+        if it exceeded {max_attempts}, the warning of the type {warning_type} will be added
+            to the user
         """
         session = Session(self.engine)
 
@@ -332,9 +435,8 @@ class PostgresDatabase:
                 .filter(WarningMessage.user_id == user_id)
                 .filter(WarningMessage.interraction_type == interraction_type)
                 .filter(WarningMessage.timestamp >= twenty_four_hours_ago)
-                .filter(WarningMessage.warning_type == None).count()
+                .filter(WarningMessage.warning_type is None).count()
         )
-        logger.info(f'{entries_count_without_warning_type} entries without warning with {max_attempts} as hard limit')
 
         count_entries = 0
 
@@ -367,13 +469,14 @@ class PostgresDatabase:
         return count_entries
 
     def ban(self, username: str) -> None:
+        """Adds user to the list of banned users"""
         session = Session(self.engine)
         session.add(BannedUser(username=username))
         session.commit()
         session.close()
-        return
 
     def unban(self, username: str) -> bool:
+        """Removes user from the list of banned users"""
         session = Session(self.engine)
         deleted_count = (
             session.query(BannedUser)
@@ -384,6 +487,7 @@ class PostgresDatabase:
         return deleted_count != 0
 
     def is_banned(self, username: str) -> Optional[datetime]:
+        """Returns the timestamp of the user's ban or None if they were not banned"""
         session = Session(self.engine)
         ban_timestamp = (
             session.query(BannedUser.timestamp)
