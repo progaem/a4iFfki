@@ -48,7 +48,7 @@ class LanguageFilter:
             raise LanguageFilterError(
                 f"No key word was found for the message {message}", "detect", "No match")
 
-        return message.split(matched_key_words[0])[1]
+        return matched_key_words[0].split(' ')[-1] + message.split(matched_key_words[0])[1]
 
     def __load_words_from_file(self, filename):
         with open(filename, 'r', encoding='utf-8') as file:

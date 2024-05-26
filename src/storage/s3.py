@@ -10,6 +10,7 @@ from PIL.Image import Image
 
 import boto3
 from botocore.exceptions import ClientError
+from botocore.client import Config
 
 from common.exceptions import ImageS3StorageError
 
@@ -23,7 +24,8 @@ class ImageS3Storage:
             's3',
             endpoint_url='http://s3:9000',
             aws_access_key_id=self.minio_access_key,
-            aws_secret_access_key=self.minio_secret_key)
+            aws_secret_access_key=self.minio_secret_key,
+            config=Config(signature_version='s3v4'))
 
         self.bucket_name = "stickers"
         self.stickers_prefix = "sticker_files"

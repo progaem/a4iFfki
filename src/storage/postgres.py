@@ -146,8 +146,8 @@ class BannedUser(Base):
 class StickersetOwner(Base):
     __tablename__ = 'stickerset_owners'
 
-    user_id = Column(Text, nullable=False, primary_key=True, comment="the stickerset owner ID")
-    chat_id = Column(BigInteger, nullable=False, comment="The chat ID")
+    user_id = Column(Text, nullable=False, comment="the stickerset owner ID")
+    chat_id = Column(BigInteger, nullable=False, primary_key=True, comment="The chat ID")
 
     def __repr__(self):
         return f"StickersetOwner(\n\tuser_id={self.user_id},\n\tchat_id={self.chat_id})"

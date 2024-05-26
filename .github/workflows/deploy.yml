@@ -49,17 +49,17 @@ jobs:
     
     - name: Create devo.conf
       run: |
-        echo "POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}" > devo.conf
-        echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> devo.conf
-        echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> devo.conf
-        echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> devo.conf
-        echo "S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}" >> devo.conf
-        echo "MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}" >> devo.conf
-        echo "MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}" >> devo.conf
-        echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" >> devo.conf
-        echo "TELEGRAM_BOT_NAME=${{ secrets.TELEGRAM_BOT_NAME }}" >> devo.conf
-        echo "DEEPAI_API_TOKEN=${{ secrets.DEEPAI_API_TOKEN }}" >> devo.conf
-        echo "GOOGLE_TRANSLATE_API=${{ secrets.GOOGLE_TRANSLATE_API }}" >> devo.conf
+        echo 'POSTGRES_HOST=${{ secrets.POSTGRES_HOST }}' > devo.conf
+        echo 'POSTGRES_DB=${{ secrets.POSTGRES_DB }}' >> devo.conf
+        echo 'POSTGRES_USER=${{ secrets.POSTGRES_USER }}' >> devo.conf
+        echo 'POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}' >> devo.conf
+        echo 'S3_ENDPOINT=${{ secrets.S3_ENDPOINT }}' >> devo.conf
+        echo 'MINIO_ROOT_USER=${{ secrets.MINIO_ROOT_USER }}' >> devo.conf
+        echo 'MINIO_ROOT_PASSWORD=${{ secrets.MINIO_ROOT_PASSWORD }}' >> devo.conf
+        echo 'TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}' >> devo.conf
+        echo 'TELEGRAM_BOT_NAME=${{ secrets.TELEGRAM_BOT_NAME }}' >> devo.conf
+        echo 'DEEPAI_API_TOKEN=${{ secrets.DEEPAI_API_TOKEN }}' >> devo.conf
+        echo 'GOOGLE_TRANSLATE_API=${{ secrets.GOOGLE_TRANSLATE_API }}' >> devo.conf
     
     - name: Copy configuration files to server
       run: |
@@ -81,7 +81,7 @@ jobs:
           sleep 1
         fi &&
         if [ ! \$(docker ps -q -f name=s3) ]; then
-          echo "Initializing s3 instance"
+          echo "Initializing minio instance"
           sudo docker-compose -f docker-compose.yml up -d s3
           sleep 1
         fi &&

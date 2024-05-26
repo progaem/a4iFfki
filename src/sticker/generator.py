@@ -43,8 +43,7 @@ class StickerGenerator:
         prompt = (
             f'Create a humorous sticker representing the achievement of {achievement_text_in_en}. '
             f'The design should be in the form of a vector graphic with simple lines and a limited '
-            f'color palette. Include a symbolic element, like a trophy, to signify the '
-            f'achievement. The background should be white to emphasize the sticker format')
+            f'color palette. The background should be white to emphasize the sticker format')
 
         # Generate image from prompt
         try:
