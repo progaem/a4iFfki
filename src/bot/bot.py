@@ -253,12 +253,12 @@ class Bot:
                 ))
             return
 
-        if self.language_filter.check_for_inappropriate_language(message_text):
+        if self.language_filter.check_for_inappropriate_language(prompt):
             await self.warnings_processor.add_inappropriate_language_warning(update)
             return
-        
-        if self.language_filter.check_for_message_length(prompt):
-            await self.warnings_processor.add_too_long_message_warning(update)
+
+        if self.language_filter.check_for_message_format(prompt):
+            await self.warnings_processor.add_message_format_warning(update)
             return
 
         if await self.warnings_processor.add_give_achievement_warning(update):

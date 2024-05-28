@@ -2,6 +2,7 @@
 This module integrates language filtering capabilities with a Telegram bot
 """
 import functools
+import re
 
 from telegram.ext.filters import MessageFilter
 from telegram.ext import filters
@@ -26,13 +27,16 @@ class LanguageFilter:
             return True
         return False
 
-    def check_for_message_length(self, message: str) -> bool:
-        """Checks if the message complies with lengths limitations"""
+    def check_for_message_format(self, message: str) -> bool:
+        """Checks if the message complies with format limitations"""
         maximum_word_length = len(max(set(message.lower().split()), key=len))
         message_length = len(message)
+        not_alphanumeric = not self.__is_alphanumeric(message)
         breaks_word_length_limit = maximum_word_length > self.WORD_LENGTH_LIMIT
         breaks_message_length_limit = message_length > self.MESSAGE_LENGTH_LIMIT
-        return breaks_word_length_limit or breaks_message_length_limit
+        return breaks_word_length_limit or\
+            breaks_message_length_limit or\
+            not_alphanumeric
 
     def construct_message_filter(self) -> MessageFilter:
         """Constructs message filter for Telegram bot to trigger"""
@@ -41,14 +45,30 @@ class LanguageFilter:
 
     def detect_prompt(self, message: str) -> str:
         """Returns possible prompt defined in the message"""
+        message_without_redundant_spaces = ' '.join(
+            [word for word in message.split(' ') if word]
+        )
+        words_in_message = len(message_without_redundant_spaces.split(' '))
         matched_key_words = [
-            key_word for key_word in self.key_words if message.startswith(key_word)
+            key_word for key_word in self.key_words
+            if message_without_redundant_spaces.startswith(key_word)
+            and words_in_message > len(key_word.split(' '))
         ]
         if not matched_key_words:
             raise LanguageFilterError(
-                f"No key word was found for the message {message}", "detect", "No match")
+                f"No key word was found for the message {message_without_redundant_spaces}",
+                "detect",
+                "No match"
+            )
 
-        return matched_key_words[0].split(' ')[-1] + message.split(matched_key_words[0])[1]
+        return matched_key_words[0].split(' ')[-1] +\
+            message_without_redundant_spaces.split(matched_key_words[0])[1]
+
+    def __is_alphanumeric(self, string: str):
+        # Note: not using isalnum because some Russian characters are not alphanumeric
+        # For example: 'з' or 'ё'
+        pattern = re.compile(r'^[A-Za-zА-Яа-яЁёÁÉÍÓÚÑáéíóúñ0-9 ]+$')
+        return bool(pattern.match(string))
 
     def __load_words_from_file(self, filename):
         with open(filename, 'r', encoding='utf-8') as file:

@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from botocore.client import Config
 
 from common.exceptions import ImageS3StorageError
+from common.utils import by_chunk
 
 
 class ImageS3Storage:
@@ -65,22 +66,22 @@ class ImageS3Storage:
     
     def remove_all(self, file_paths_to_remove: list[str]) -> None:
         """Removes all files located at the file paths"""
-        try:
-            fomatted_file_entries = [
-                {'Key': file_path } for file_path in file_paths_to_remove
-            ]
-            self.s3.delete_objects(
-                Bucket=self.bucket_name,
-                Delete={
-                    'Objects': fomatted_file_entries,
-                },
-            )
-        except Exception as e:
-            raise ImageS3StorageError(
-                f"Failed to delete files",
-                "delete-objects",
-                str(e)
-            ) from e
+        for chunk_to_remove in by_chunk(file_paths_to_remove, 1000):
+            try:
+                self.s3.delete_objects(
+                    Bucket=self.bucket_name,
+                    Delete={
+                        'Objects': [
+                            {'Key': key } for key in chunk_to_remove
+                        ],
+                    },
+                )
+            except Exception as e:
+                raise ImageS3StorageError(
+                    f"Failed to delete files",
+                    "delete-objects",
+                    str(e)
+                ) from e
 
     def __create_bucket(self, bucket_name: str) -> None:
         try:

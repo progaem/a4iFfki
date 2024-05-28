@@ -323,7 +323,7 @@ class PostgresDatabase:
         )
         session.commit()
         session.close()
-        return int(stickerset_owner_id)
+        return stickerset_owner_id
 
     def define_stickerset_owner(self, user_id: int, chat_id: int) -> None:
         """Adds user to the list of sticker set owners for the chat"""
@@ -420,7 +420,10 @@ class PostgresDatabase:
     def add_warning(
         self,
         user_id: int,
-        chat_id: int, interraction_type: str, max_attempts: int, warning_type: str) -> int:
+        chat_id: int,
+        interraction_type: str,
+        max_attempts: int,
+        warning_type: str) -> int:
         """Counts how many invocations of the type {interraction_type} user had with the bot.
 
         if it exceeded {max_attempts}, the warning of the type {warning_type} will be added
@@ -435,7 +438,7 @@ class PostgresDatabase:
                 .filter(WarningMessage.user_id == user_id)
                 .filter(WarningMessage.interraction_type == interraction_type)
                 .filter(WarningMessage.timestamp >= twenty_four_hours_ago)
-                .filter(WarningMessage.warning_type is None).count()
+                .filter(WarningMessage.warning_type == None).count()
         )
 
         count_entries = 0
@@ -455,13 +458,12 @@ class PostgresDatabase:
                     .filter(WarningMessage.timestamp >= twenty_four_hours_ago) 
                     .filter(WarningMessage.warning_type == warning_type).count()
             )
-        else:
-            session.add(
-                WarningMessage(
-                    user_id=user_id,
-                    chat_id=chat_id,
-                    interraction_type=interraction_type
-                ))
+        session.add(
+            WarningMessage(
+                user_id=user_id,
+                chat_id=chat_id,
+                interraction_type=interraction_type
+        ))
 
         session.commit()
         session.close()

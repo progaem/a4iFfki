@@ -9,8 +9,6 @@ from storage.postgres import PostgresDatabase
 
 ### HELPER COMMANDS, RESTRICTING VISBILITY TO METHODS ###
 
-# pylint: disable=fixme
-# TODO: add Misha
 LIST_OF_ADMINS = [249427415]
 
 def restricted_to_admins(func):
@@ -39,7 +37,9 @@ def restricted_to_stickerset_owners(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         chat_id = update.message.chat_id
         user_id = update.message.from_user.id
-        if bot.database.get_stickerset_owner(chat_id) != user_id:
+
+        stickerset_owner = bot.database.get_stickerset_owner(chat_id)
+        if not stickerset_owner or int(stickerset_owner) != user_id:
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -118,24 +118,25 @@ class WarningsProcessor:
             max_warnings_until_ban, warning_message
         )
 
-    async def add_too_long_message_warning(self, update: Update) -> bool:
+    async def add_message_format_warning(self, update: Update) -> bool:
         """Adds a warning for use of inappropriate language in the achievement message"""
-        max_too_long_message_interractions = 10
+        max_message_format_interractions = 10
         max_warnings_until_ban = 20
 
         username = update.message.from_user.username
         warning_message = (
             f"Sorry, @{username}, your request couldn't be processed due to the length of "
-            f"your message. Currently, the bot supports prompts up to 90 characters and "
-            f"words no longer than 20 characters. We are working to extend these limits. "
-            f"For now, please keep your messages within these parameters to ensure the bot "
-            f"operates smoothly. Repeatedly sending long messages will lead to further "
-            f"warnings.\n\nIf you exceed {max_too_long_message_interractions} such warnings "
-            f"in a day, they may count towards a potential ban, as it suggests an attempt "
-            f"to disrupt the bot's functions. Accumulating {max_warnings_until_ban} warnings "
-            f"within a single day may result in permanent suspension from utilizing our bot."
+            f"your message or the characters you used. Currently, the bot supports prompts "
+            f"up to 90 alphanumeric characters and words no longer than 20 characters. We "
+            f"are working to extend these limits. For now, please keep your messages within "
+            f"these parameters to ensure the bot operates smoothly. Repeatedly sending long "
+            f"messages will lead to further warnings.\n\nIf you exceed "
+            f"{max_message_format_interractions} such warnings in a day, they may count "
+            f"towards a potential ban, as it suggests an attempt to disrupt the bot's "
+            f"functions. Accumulating {max_warnings_until_ban} warnings within a single "
+            f"day may result in permanent suspension from utilizing our bot."
         )
-        return await self.__add_warning(update, "phrase_long_achievement_message", max_too_long_message_interractions, "too_long_message", max_warnings_until_ban, warning_message)
+        return await self.__add_warning(update, "phrase_wrong_achievement_message", max_message_format_interractions, "incorrect_message_format", max_warnings_until_ban, warning_message)
 
     async def add_inappropriate_language_warning(self, update: Update) -> bool:
         """Adds a warning for use of inappropriate language in the achievement message"""
