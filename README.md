@@ -1,5 +1,5 @@
 # a4iFfki Achievements Bot
-[![Docker Image Version](https://img.shields.io/docker/v/rus2m/achievements-bot-app)](https://hub.docker.com/repository/docker/rus2m/achievements-bot-app/general) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/progaem/a4iFfki/deploy.yml) ![pylint](https://img.shields.io/badge/PyLint-8.19-yellow?logo=python&logoColor=white)
+[![Docker Image Version](https://img.shields.io/docker/v/rus2m/achievements-bot-app)](https://hub.docker.com/repository/docker/rus2m/achievements-bot-app/general) ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/progaem/a4iFfki/deploy.yml) ![pylint](https://img.shields.io/badge/PyLint-8.15-yellow?logo=python&logoColor=white)
 
 [!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/progaem)
 
