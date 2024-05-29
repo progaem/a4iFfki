@@ -6,6 +6,9 @@ import random
 from PIL import Image, ImageDraw, ImageFont
 
 from common.common import BaseClass
+
+from rembg import remove
+
 from sticker.generator import StickerGenerator
 from storage.s3 import ImageS3Storage
 
@@ -59,6 +62,7 @@ class StickerArtist(BaseClass):
             self.OUTER_GROUP_STICKER_COLOR
         )
         image = self.__add_text_on_sticker(image, description, 0)
+        image = remove(image)
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     def draw_chat_description_sticker(
