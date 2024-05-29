@@ -40,7 +40,7 @@ class StickerGenerator(BaseClass):
             f'Create a humorous sticker representing the achievement of {achievement_text_in_en}. '
             f'The design should be in the form of a vector graphic with simple lines and a limited '
             f'color palette. The background should be white to emphasize the sticker format.'
-            f'Make sticker circular.')
+            f'Make sticker circular and framed.')
 
         # Generate image from prompt
         try:
