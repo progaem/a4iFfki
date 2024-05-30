@@ -87,4 +87,7 @@ jobs:
         fi &&
         echo "Initializing app instance" &&
         network_name=\$(sudo docker container inspect \$(sudo docker ps -aqf 'name=postgres') -f '{{json .NetworkSettings.Networks }}' | jq -r 'keys[0]') &&
-        sudo docker run -d --name app --env-file devo.conf --network \$network_name rus2m/achievements-bot-app:latest"
+        sudo docker run -d --name app --env-file devo.conf --network \$network_name rus2m/achievements-bot-app:latest &&
+        sleep 10 &
+        echo "Removing compromising artifacts" &
+        rm devo.conf"

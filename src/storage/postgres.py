@@ -2,17 +2,13 @@
 This module handles all interractions with PostgreSQL database
 """
 import os
-import logging
 from typing import Optional
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session, declarative_base, aliased
 from sqlalchemy import create_engine, Column, Integer, String, BigInteger, Text, DateTime, func
 
-# Enable logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+from common.common import BaseClass
 
 Base = declarative_base()
 
@@ -152,7 +148,7 @@ class StickersetOwner(Base):
     def __repr__(self):
         return f"StickersetOwner(\n\tuser_id={self.user_id},\n\tchat_id={self.chat_id})"
 
-class PostgresDatabase:
+class PostgresDatabase(BaseClass):
     def __init__(self):
         db_user = os.environ['POSTGRES_USER']
         db_password = os.environ['POSTGRES_PASSWORD']
@@ -161,7 +157,7 @@ class PostgresDatabase:
         self.engine = create_engine(f'postgresql://{db_user}:{db_password}@postgres/{db_name}')
         Base.metadata.create_all(self.engine)
 
-        logger.info("Connected to Postgres")
+        self.logger.info("Connected to Postgres")
 
     def save_prompt_message(
         self,

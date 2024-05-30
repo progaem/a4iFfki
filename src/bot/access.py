@@ -5,6 +5,7 @@ from functools import wraps
 from telegram import Update
 from telegram.ext import CallbackContext
 
+from common.common import BaseClass
 from storage.postgres import PostgresDatabase
 
 ### HELPER COMMANDS, RESTRICTING VISBILITY TO METHODS ###
@@ -64,7 +65,7 @@ def restricted_to_defined_stickerset_chats(func):
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
 
-class WarningsProcessor:
+class WarningsProcessor(BaseClass):
     BAN_MESSAGE = (
         "@{user_name} you exceeded the limit of {warnings_limit}, so as we warned previously, "
         "we permanently ban you from utilizing this bot"

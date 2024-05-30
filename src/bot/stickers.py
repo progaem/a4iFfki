@@ -7,10 +7,11 @@ from telegram.constants import StickerFormat
 from telegram.ext import CallbackContext
 
 from bot.commons import generate_sticker_set_name_and_title
+from common.common import BaseClass
 from sticker.artist import StickerArtist
 from storage.postgres import ChatSticker, PostgresDatabase, UserSticker
 
-class StickerManager:
+class StickerManager(BaseClass):
     ACHIEVEMENT_EMOJI = "🥇"
     TELEGRAM_STICKERS_LINE_COUNT = 5
 

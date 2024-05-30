@@ -7,10 +7,11 @@ from io import BytesIO
 import httpx
 from PIL import Image
 
+from common.common import BaseClass
 from common.exceptions import DeepAIAPIError
 
 
-class DeepAIAPI:
+class DeepAIAPI(BaseClass):
     """This class handles all requests to the Deep AI API"""
     # Deep AI API configuration
     DEEP_AI_URL = "https://api.deepai.org/api/text2img" # Deep AI API

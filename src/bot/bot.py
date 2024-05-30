@@ -3,7 +3,6 @@ This module handles Telegram bot commands implementation
 """
 import json
 import html
-import logging
 import os
 import traceback
 
@@ -16,22 +15,16 @@ from telegram.ext import filters
 from bot.access import LIST_OF_ADMINS, WarningsProcessor, restricted_to_admins, restricted_to_not_banned, restricted_to_stickerset_owners, restricted_to_undefined_stickerset_chats, restricted_to_defined_stickerset_chats
 from bot.stickers import StickerManager
 
+from common.common import BaseClass
+from common.utils import masked_print
+
 from message.filter import LanguageFilter
 from storage.s3 import ImageS3Storage
 from sticker.artist import StickerArtist
 from storage.postgres import PostgresDatabase
-from common.utils import masked_print
-
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-# set higher logging level for httpx to avoid all GET and POST requests being logged
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logger = logging.getLogger(__name__)
 
 
-class Bot:
+class Bot(BaseClass):
     # pylint: disable=all
     DOCUMENTATION = [
         ("What is it?", "This is the Achievements Bot\.\nEver wanted to show appreciation for someone's _achievements_ in a chat? With this bot, you can create unique stickers representing their achievements and assign them directly\. Each chat will also have a sticker set to keep track of all the achievements awarded\."),
@@ -67,7 +60,7 @@ class Bot:
 
         telegram_token = os.environ['TELEGRAM_BOT_TOKEN']
         self.application = Application.builder().token(telegram_token).build()
-        logger.info("Telegram application was started with %s", masked_print(telegram_token))
+        self.logger.info("Telegram application was started with %s", masked_print(telegram_token))
 
     ### COMMANDS AVAILABLE ONLY TO ADMINS ###
 
@@ -100,7 +93,7 @@ class Bot:
     @restricted_to_stickerset_owners
     async def reset(self, update: Update, context: CallbackContext) -> None:
         """Resets the achievements progress in the chat and deletes stickerset from the user"""
-        logger.info("reset was invoked")
+        self.logger.info("reset command was invoked")
         bot: BT = context.bot
     
         chat_id = update.message.chat_id
@@ -242,7 +235,7 @@ class Bot:
         invoking_user_name = update.message.from_user.username
         cited_user_id = update.message.reply_to_message.from_user.id
         cited_user_username = update.message.reply_to_message.from_user.username
-        logger.info(f"{user_id} in {chat_id} mentioned key word replying to {cited_user_id} message: {message_text}")
+        self.logger.info(f"{user_id} in {chat_id} mentioned key word replying to {cited_user_id} message: {message_text}")
 
         prompt = self.language_filter.detect_prompt(message_text)
         if not prompt:
@@ -340,7 +333,7 @@ class Bot:
     
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Global error handler for all errors that appear in the application"""
-        logger.error("Exception while handling an update:", exc_info=context.error)
+        self.logger.error("Exception while handling an update:", exc_info=context.error)
 
         # pylint: disable=fixme
         # TODO: track error causes

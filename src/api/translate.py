@@ -5,10 +5,11 @@ import re
 import os
 import httpx
 
+from common.common import BaseClass
 from common.exceptions import GoogleAPIError
 
 
-class GoogleTranslateAPI:
+class GoogleTranslateAPI(BaseClass):
     """This class handles all requests to the Google Translate API"""
     GOOGLE_TRANSLATE_URL = "https://translation.googleapis.com/language/translate/v2"
     GOOGLE_TRANSLATE_API_MAXIMUM_STRINGS = 128

@@ -12,11 +12,12 @@ import boto3
 from botocore.exceptions import ClientError
 from botocore.client import Config
 
+from common.common import BaseClass
 from common.exceptions import ImageS3StorageError
 from common.utils import by_chunk
 
 
-class ImageS3Storage:
+class ImageS3Storage(BaseClass):
 
     def __init__(self):
         self.minio_access_key = os.environ['MINIO_ROOT_USER']
@@ -27,6 +28,8 @@ class ImageS3Storage:
             aws_access_key_id=self.minio_access_key,
             aws_secret_access_key=self.minio_secret_key,
             config=Config(signature_version='s3v4'))
+
+        self.logger.info("Connected to Minio")
 
         self.bucket_name = "stickers"
         self.stickers_prefix = "sticker_files"
@@ -53,6 +56,7 @@ class ImageS3Storage:
                 buffer.seek(0)
                 return buffer.read()
         except ClientError as e:
+            self.logger(str(e))
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 raise FileNotFoundError(
@@ -77,6 +81,7 @@ class ImageS3Storage:
                     },
                 )
             except Exception as e:
+                self.logger(str(e))
                 raise ImageS3StorageError(
                     f"Failed to delete files",
                     "delete-objects",
@@ -89,6 +94,7 @@ class ImageS3Storage:
         except ClientError as e:
             error_code = e.response['Error']['Code']
             if error_code != 'BucketAlreadyOwnedByYou':
+                self.logger(str(e))
                 raise ImageS3StorageError(
                     f"Failed to create bucket:",
                     "create-bucket",

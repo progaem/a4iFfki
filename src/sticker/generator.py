@@ -1,20 +1,15 @@
 """
 This module handles all AI sticker generation process
 """
-import logging
 from PIL import Image
 
 from api.deepai import DeepAIAPI
 from api.translate import GoogleTranslateAPI
 
+from common.common import BaseClass
 from common.exceptions import StickerGeneratorError
 
-# Enable logging
-logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
-
-class StickerGenerator:
+class StickerGenerator(BaseClass):
     """
     Class that handles the process of creating a sticker from prompt,
         through utilizing DeepAI and Google Translate API
@@ -34,7 +29,7 @@ class StickerGenerator:
         try:
             achievement_text_in_en = await self.google_translate_api.translate(achievement_text)
         except Exception as e:
-            logger.error(str(e))
+            self.logger.error(str(e))
             raise StickerGeneratorError(
                 "Problem appeared during Google Translate API invocation", "google-api", str(e)
             ) from e
@@ -49,6 +44,7 @@ class StickerGenerator:
         try:
             image = await self.deep_api.generate_image(prompt)
         except Exception as e:
+            self.logger.error(str(e))
             raise StickerGeneratorError(
                 "Problem appeared during Deep AI API invocation", "deepai-api", str(e)
             ) from e
