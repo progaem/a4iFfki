@@ -5,6 +5,7 @@ import random
 
 from PIL import Image, ImageDraw, ImageFont
 
+from common.common import BaseClass
 from sticker.generator import StickerGenerator
 from storage.s3 import ImageS3Storage
 
@@ -15,7 +16,7 @@ class StickerType(Enum):
     PROFILE = 4
     PROFILE_DESCRIPTION = 5
 
-class StickerArtist:
+class StickerArtist(BaseClass):
     WIDTH = 512
     HEIGHT = 512
     BACKGROUND_COLOR = (255, 255, 255, 0)  # Transparent background
@@ -34,6 +35,7 @@ class StickerArtist:
     EMPTY_STICKER_PATH = "sticker_files/empty.png"
 
     def __init__(self, sticker_file_manager: ImageS3Storage, sticker_generator: StickerGenerator):
+        super().__init__()
         self.sticker_file_manager = sticker_file_manager
         self.sticker_generator = sticker_generator
 

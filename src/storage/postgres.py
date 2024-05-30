@@ -150,6 +150,7 @@ class StickersetOwner(Base):
 
 class PostgresDatabase(BaseClass):
     def __init__(self):
+        super().__init__()
         db_user = os.environ['POSTGRES_USER']
         db_password = os.environ['POSTGRES_PASSWORD']
         db_name = os.environ['POSTGRES_DB']

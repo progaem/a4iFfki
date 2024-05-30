@@ -16,6 +16,7 @@ class StickerManager(BaseClass):
     TELEGRAM_STICKERS_LINE_COUNT = 5
 
     def __init__(self, database: PostgresDatabase, sticker_artist: StickerArtist):
+        super().__init__()
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
 
         self.database = database

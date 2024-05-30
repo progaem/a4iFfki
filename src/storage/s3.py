@@ -20,6 +20,7 @@ from common.utils import by_chunk
 class ImageS3Storage(BaseClass):
 
     def __init__(self):
+        super().__init__()
         self.minio_access_key = os.environ['MINIO_ROOT_USER']
         self.minio_secret_key = os.environ['MINIO_ROOT_PASSWORD']
         self.s3 = boto3.client(

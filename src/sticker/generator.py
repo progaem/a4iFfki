@@ -16,6 +16,7 @@ class StickerGenerator(BaseClass):
     """
 
     def __init__(self, google_translate_api: GoogleTranslateAPI, deep_api: DeepAIAPI) -> None:
+        super().__init__()
         self.google_translate_api = google_translate_api
         self.deep_api = deep_api
 

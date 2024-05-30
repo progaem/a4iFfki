@@ -72,6 +72,7 @@ class WarningsProcessor(BaseClass):
     )
 
     def __init__(self, database: PostgresDatabase):
+        super().__init__()
         self.database = database
 
     async def add_show_stickers_warning(self, update: Update) -> bool:

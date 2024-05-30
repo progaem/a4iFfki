@@ -46,6 +46,7 @@ class Bot(BaseClass):
     # pylint: enable=all
 
     def __init__(self, database: PostgresDatabase, sticker_file_manager: ImageS3Storage, language_filter: LanguageFilter, warnings_processor: WarningsProcessor, sticker_artist: StickerArtist, sticker_manager: StickerManager):
+        super().__init__()
         self.telgram_bot_name = os.environ['TELEGRAM_BOT_NAME']
 
         self.database = database

@@ -7,9 +7,10 @@ import re
 from telegram.ext.filters import MessageFilter
 from telegram.ext import filters
 
+from common.common import BaseClass
 from common.exceptions import LanguageFilterError
 
-class LanguageFilter:
+class LanguageFilter(BaseClass):
     """Class for filtering language in messages received by a Telegram bot"""
     KEY_PHRASES_FILE_PATH = "../resources/key.txt"
     BAN_PHRASES_FILE_PATH = "../resources/ban.txt"
@@ -17,6 +18,7 @@ class LanguageFilter:
     MESSAGE_LENGTH_LIMIT = 90
 
     def __init__(self):
+        super().__init__()
         self.key_words = self.__load_words_from_file(self.KEY_PHRASES_FILE_PATH)
         self.banned_words = self.__load_words_from_file(self.BAN_PHRASES_FILE_PATH)
 
