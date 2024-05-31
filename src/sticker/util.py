@@ -11,7 +11,7 @@ def is_image_suitable_for_achievement(image: Image.Image) -> bool:
     if image_array.shape[2] == 4:
         alpha_channel: np.ndarray = image_array[:, :, 3]
     else:
-        False
+        return False
 
     mask: np.ndarray = alpha_channel > 0
 
