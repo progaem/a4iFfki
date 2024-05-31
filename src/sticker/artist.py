@@ -12,7 +12,7 @@ from rembg import remove
 from sticker.generator import StickerGenerator
 from storage.s3 import ImageS3Storage
 
-from util import is_image_suitable_for_achievement
+from sticker.util import is_image_suitable_for_achievement
 
 class StickerType(Enum):
     EMPTY = 1
