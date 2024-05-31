@@ -6,8 +6,13 @@ import random
 from PIL import Image, ImageDraw, ImageFont
 
 from common.common import BaseClass
+
+from rembg import remove
+
 from sticker.generator import StickerGenerator
 from storage.s3 import ImageS3Storage
+
+from sticker.util import is_image_suitable_for_achievement
 
 class StickerType(Enum):
     EMPTY = 1
@@ -81,6 +86,9 @@ class StickerArtist(BaseClass):
         # image = self.__generate_sticker_of_random_color()
         # image = self.__add_text_on_sticker(image, f"picture about {prompt}", 0)
         image = await self.sticker_generator.generate_image(prompt)
+        image_without_bg = remove(image)
+        if is_image_suitable_for_achievement(image_without_bg):
+            image = image_without_bg
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     def draw_sticker_from_profile_picture(self, image: bytes) -> tuple[str, bytes]:
