@@ -12,7 +12,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackCo
 from telegram.constants import ParseMode
 from telegram.ext import filters
 
-from bot.access import LIST_OF_ADMINS, WarningsProcessor, restricted_to_admins, restricted_to_not_banned, restricted_to_stickerset_owners, restricted_to_undefined_stickerset_chats, restricted_to_defined_stickerset_chats
+from bot.access import LIST_OF_ADMINS, WarningsProcessor, restricted_to_admins, restricted_to_not_banned, restricted_to_stickerset_owners, restricted_to_supergroups, restricted_to_undefined_stickerset_chats, restricted_to_defined_stickerset_chats
 from bot.stickers import StickerManager
 
 from common.common import BaseClass
@@ -28,7 +28,7 @@ class Bot(BaseClass):
     # pylint: disable=all
     DOCUMENTATION = [
         ("What is it?", "This is the Achievements Bot\.\nEver wanted to show appreciation for someone's _achievements_ in a chat? With this bot, you can create unique stickers representing their achievements and assign them directly\. Each chat will also have a sticker set to keep track of all the achievements awarded\."),
-        ("Where are the stickers stored?", "Stickers are stored in specific Telegram sticker sets\. There's one sticker set for each person to track individual achievements, and another for the entire chat to monitor collective achievements\.\n\nTo manage these sets, one chat member _with a PREMIUM account_ must become the sticker set owner by sending /own\_stickers in the chat\.\n\nRemember, if you're the owner, DO NOT modify these stickers as it could disrupt the bot's functionality\."),
+        ("Where are the stickers stored?", "Stickers are stored in specific Telegram sticker sets\. There's one sticker set for each person to track individual achievements, and another for the entire chat to monitor collective achievements\.\n\nTo manage these sets, one chat member must become the sticker set owner by sending /own\_stickers in the chat\.\n\nRemember, if you're the owner, DO NOT modify these stickers as it could disrupt the bot's functionality\."),
         ("How to give a new achievement?", "To award a new achievement, reply to a message in the chat, using a specific keyword to activate the bot\. The bot will recognize the keyword, process the achievement, and post stickers representing it—one from the individual's set and another from the chat's collective set\.\nThe stickers are AI\-generated based on the achievement's description\.\n\nCurrently, you can use phrases like `выдаю ачивку за \(текст достижения\)` or `drop an achievement for \(achievement message\)` to trigger the bot\.  \([Full list of key phrases](https://github.com/progaem/a4iFfki/blob/master/resources/key.txt)\)"),
         ("How to give an existing achievement?", "Simply reply to a message with an achievement sticker from the chat's collective sticker set\. Every time you award the same achievement to a new person, the count under each description sticker increases\."),
         ("FAQ", """>Why did I receive a warning for excessive bot usage?
@@ -44,6 +44,9 @@ class Bot(BaseClass):
     Absolutely, and thanks for asking\! We recently set up a  [Buy Me a Coffee account](https://buymeacoffee.com/progaem), where you can support our project if you choose to\. Any support is entirely optional but greatly appreciated\! <3""")
     ]
     # pylint: enable=all
+    
+    DOCUMENTATION_BUTTON_PREFIX = "documentation"
+    ASSIGN_CHAT_STICKERSET_BUTTON_PREFIX = "assign_chat"
 
     def __init__(self, database: PostgresDatabase, sticker_file_manager: ImageS3Storage, language_filter: LanguageFilter, warnings_processor: WarningsProcessor, sticker_artist: StickerArtist, sticker_manager: StickerManager):
         super().__init__()
@@ -65,6 +68,7 @@ class Bot(BaseClass):
 
     ### COMMANDS AVAILABLE ONLY TO ADMINS ###
 
+    @restricted_to_supergroups
     @restricted_to_admins
     async def ban(self, update: Update, context: CallbackContext) -> None:
         """Bans a person from invoking a bot forever"""
@@ -77,6 +81,7 @@ class Bot(BaseClass):
             await update.message.reply_text(
                 "In order to ban a user, invoke /ban command with the mention of the user that you intend to ban (e.g. /ban @username)")
 
+    @restricted_to_supergroups
     @restricted_to_admins
     async def unban(self, update: Update, context: CallbackContext) -> None:
         """Unbans a person, lifting the restriction to invoke a bot"""
@@ -91,6 +96,7 @@ class Bot(BaseClass):
 
     ### COMMANDS AVAILABLE ONLY TO STICKERSET OWNERS ###
 
+    @restricted_to_supergroups
     @restricted_to_stickerset_owners
     async def reset(self, update: Update, context: CallbackContext) -> None:
         """Resets the achievements progress in the chat and deletes stickerset from the user"""
@@ -114,6 +120,7 @@ class Bot(BaseClass):
             f"are unavailable again, until new sticker set owner would be chosen by /own_stickers command"
         )
 
+    @restricted_to_supergroups
     @restricted_to_stickerset_owners
     async def transfer(self, update: Update, context: CallbackContext) -> None:
         """Transfers sticker set to another person and makes them new stickerset owner"""
@@ -125,22 +132,47 @@ class Bot(BaseClass):
     async def start(self, update: Update, context: CallbackContext) -> None:
         """Sends a greeting message with an interractive documentation message"""
         bot: BT = context.bot
-        chat_id = update.message.chat_id
+        chat_id = update.message.chat.id
+        user_id = update.message.from_user.id
 
-        await update.message.reply_text(
-            "Hi there! Thank you for using our bot!\nHere's the small documentation what it does and how it's working")
+        match update.message.chat.type:
+            case "private":
+                chats = self.database.get_chats_with_requested_stickerset_ownership(user_id)
+                keyboard = [
+                    [
+                        InlineKeyboardButton(chat_name, callback_data=f"{self.ASSIGN_CHAT_STICKERSET_BUTTON_PREFIX}{chat_id}") for chat_name, chat_id in chats
+                    ]
+                ]
+                await update.message.reply_text(
+                    (
+                        "Hello! Thank you for using our bot!\n\nThis bot is designed "
+                        "for group chats only. However, in private messages, it helps "
+                        "determine sticker ownership for the group chats where you have "
+                        "requested stickerset ownership.\n\nHere is the list of chats "
+                        "where you requested stickerset ownership within the last 24 hours."
+                    ),
+                    reply_markup = InlineKeyboardMarkup(keyboard))
+            
+            case "supergroup":
+                await update.message.reply_text(
+                    (
+                        "Hi there! Thank you for using our bot!\nHere's the "
+                        "small documentation what it does and how it's working"
+                    ))
+                await self.__documentation_message(update, context)
+                if not self.database.is_stickerset_owner_defined_for_chat(chat_id):
+                    await bot.send_message(
+                        chat_id,
+                        (
+                            "*Reminder:*\n\nTo access additional features of the "
+                            "bot beyond the /start and /help commands, _please "
+                            "designate a sticker set owner for this chat_ by "
+                            "using the /own\_stickers command"
+                        ),
+                        parse_mode=ParseMode.MARKDOWN_V2)
+                return
 
-        await self.__documentation_message(update, context)
-
-        if not self.database.is_stickerset_owner_defined_for_chat(chat_id):
-            await bot.send_message(
-                chat_id,
-                (
-                    "*Reminder:*\n\nTo access additional features of the bot beyond the /start and /help commands, "
-                    "_please designate a sticker set owner for this chat_ by using the /own\_stickers command"
-                ),
-                parse_mode=ParseMode.MARKDOWN_V2)
-
+    @restricted_to_supergroups
     @restricted_to_not_banned
     async def help_command(self, update: Update, context: CallbackContext) -> None:
         """Sends an interractive documentation message"""
@@ -158,46 +190,79 @@ class Bot(BaseClass):
                 ),
                 parse_mode=ParseMode.MARKDOWN_V2)
 
-    async def documentation_button(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Modifies content of interractive documentation message when the user clicked selected different subtopic by pressing a button"""
+    async def handle_button_updates(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """
+        Handles button updates:
+        - For assign chat stickerset buttons:
+        Attempts to assign user a role of stickerset owner for chosen chat
+        
+        - For documentation buttons:
+        Modifies content of interractive documentation message when the user clicked selected different subtopic by pressing a button
+        """
         query = update.callback_query
         await query.answer()
 
-        keyboard = [[InlineKeyboardButton(content[0], callback_data=i) for i, content in enumerate(self.DOCUMENTATION)]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(
-            text=self.__format_documentation_page(int(query.data)),
-            parse_mode=ParseMode.MARKDOWN_V2,
-            reply_markup=reply_markup,
-            link_preview_options=LinkPreviewOptions(is_disabled=True))
+        bot: BT = context.bot
 
+        match query.data:
+            case str(s) if self.DOCUMENTATION_BUTTON_PREFIX in s:
+                keyboard = [[InlineKeyboardButton(content[0], callback_data=f"{self.DOCUMENTATION_BUTTON_PREFIX}{i}") for i, content in enumerate(self.DOCUMENTATION)]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+        
+                await query.edit_message_text(
+                    text=self.__format_documentation_page(int(s.split(self.DOCUMENTATION_BUTTON_PREFIX)[1])),
+                    parse_mode=ParseMode.MARKDOWN_V2,
+                    reply_markup=reply_markup,
+                    link_preview_options=LinkPreviewOptions(is_disabled=True))
+            
+            case str(s) if self.ASSIGN_CHAT_STICKERSET_BUTTON_PREFIX in s:
+                chat_id = int(s.split(self.ASSIGN_CHAT_STICKERSET_BUTTON_PREFIX)[1])
+                user_id = query.from_user.id
+                username = query.from_user.username
+                if self.database.assign_stickerset_owner(user_id, chat_id):
+                    await bot.send_message(
+                        user_id,
+                        "Congrats! Now you're the owner of this chat's stickerset!",
+                        reply_markup=InlineKeyboardMarkup([])
+                    )
+                    await bot.send_message(
+                        chat_id,
+                        (
+                            f"Congrats, @{username} you've been assigned as a stickerset owner for this chat."
+                            f"\n\nNow all other functions of the bot have been unblocked for this chat. "
+                            f"For more information check /help command"
+                        ))
+                else:
+                    await bot.send_message(
+                        user_id,
+                        (
+                            "Sorry, but it turns out that the owner for this chat was already chosen. "
+                            "Run /start command again to see your updated pending requests"
+                        ),
+                        reply_markup=InlineKeyboardMarkup([])
+                    )
+                    
     ### COMMANDS AVAILABLE ONLY TO CHATS WITH UNDEFINED STICKERSET OWNERS ###
 
+    @restricted_to_supergroups
     @restricted_to_not_banned
     @restricted_to_undefined_stickerset_chats
     async def own_stickers(self, update: Update, context: CallbackContext) -> None:
         """Makes a user invoking the command the owner of stickerset in the chat """
         chat_id = update.message.chat_id
+        chat_name = update.effective_chat.effective_name
         user_id = update.message.from_user.id
         username = update.message.from_user.username
-        if update.message.from_user.is_premium:
-            self.database.define_stickerset_owner(user_id, chat_id)
-            await update.message.reply_text(
-                (
-                    f"Congrats, @{username} you've been assigned as a stickerset owner for this chat."
-                    f"\n\nNow all other functions of the bot have been unblocked for this chat. "
-                    f"For more information check /help command"
-                 ))
-        else:
-            await update.message.reply_text(
-                (
-                    f"@{username}, unfortunately you couldn't be a stickerset owner for this chat as you are "
-                    f"not a Telegram premium user. Please ask another member of this chat to become a stickerset "
-                    f"owner by invoking this command"))
+        self.database.add_stickerset_owner_candidate(user_id, chat_id, chat_name)
+        await update.message.reply_text(
+            (
+                f"@{username} you've send a request to become a stickerset owner for this chat."
+                f"\n\nTo proceed, please send /start message to this bot in DM "
+             ))
 
     ### COMMANDS AVAILABLE ONLY TO CHATS WITH DEFINED STICKERSET OWNERS AND UNBANNED USERS ###
 
+    @restricted_to_supergroups
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
     async def show_sticker_set(self, update: Update, context: CallbackContext) -> None:
@@ -225,6 +290,7 @@ class Bot(BaseClass):
 
         await update.message.reply_text(response)
 
+    @restricted_to_supergroups
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
     async def on_give(self, update: Update, context: CallbackContext) -> None:
@@ -289,6 +355,7 @@ class Bot(BaseClass):
 
         await self.__respond_with_achievement_stickers(update, context, invoking_user_name, cited_user_username, chat_name, chat_id, prompt, achievement_user_sticker_file_id, achievement_description_chat_sticker_file_id)
 
+    @restricted_to_supergroups
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
     async def on_sticker_reply(self, update: Update, context: CallbackContext) -> None:
@@ -363,7 +430,7 @@ class Bot(BaseClass):
         return f"*{self.DOCUMENTATION[documentation_page_num][0]}*\n\n{self.DOCUMENTATION[documentation_page_num][1]}"
 
     async def __documentation_message(self, update: Update, context: CallbackContext) -> None:
-        keyboard = [[InlineKeyboardButton(content[0], callback_data=i) for i, content in enumerate(self.DOCUMENTATION)]]
+        keyboard = [[InlineKeyboardButton(content[0], callback_data=f"{self.DOCUMENTATION_BUTTON_PREFIX}{i}") for i, content in enumerate(self.DOCUMENTATION)]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(self.__format_documentation_page(0), parse_mode=ParseMode.MARKDOWN_V2, reply_markup=reply_markup, link_preview_options=LinkPreviewOptions(is_disabled=True))
@@ -398,7 +465,7 @@ class Bot(BaseClass):
         # default commands
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(CallbackQueryHandler(self.documentation_button))
+        self.application.add_handler(CallbackQueryHandler(self.handle_button_updates))
 
         # undefined stickerset chat commands
         self.application.add_handler(CommandHandler("own_stickers", self.own_stickers))

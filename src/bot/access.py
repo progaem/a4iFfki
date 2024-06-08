@@ -12,6 +12,25 @@ from storage.postgres import PostgresDatabase
 
 LIST_OF_ADMINS = [249427415]
 
+def restricted_to_private_messages(func):
+    """Restricts the usage of the command only to private messages"""
+    @wraps(func)
+    async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
+        if not update.message.chat.type == "private":
+            return
+        return await func(bot, update, context, *args, **kwargs)
+    return wrapped
+        
+
+def restricted_to_supergroups(func):
+    """Restricts the usage of the command only to supergroups"""
+    @wraps(func)
+    async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
+        if not update.message.chat.type == "supergroup":
+            return
+        return await func(bot, update, context, *args, **kwargs)
+    return wrapped
+
 def restricted_to_admins(func):
     """Restricts the usage of the command to admins of the bot"""
     @wraps(func)

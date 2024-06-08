@@ -139,6 +139,24 @@ class BannedUser(Base):
     def __repr__(self):
         return f"BannedUser(\n\tusername={self.username},\n\ttimestamp={self.timestamp})"
 
+class StickerSetOwnerCandidate(Base):
+    __tablename__ = 'stickerset_owner_candidates'
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(BigInteger, nullable=False, comment="the stickerset owner candidate ID")
+    chat_id = Column(BigInteger, nullable=False, comment="The chat ID")
+    chat_name = Column(Text, nullable=False, comment="The chat name")
+    timestamp = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        comment="The timestamp of the candidate")
+
+    def __repr__(self):
+        return (
+            f"StickersetOwnerCandidate(\n\tuser_id={self.user_id},\n"
+            f"\tchat_id={self.chat_id},\n\ttimestamp={self.timestamp}))")
+
 class StickersetOwner(Base):
     __tablename__ = 'stickerset_owners'
 
@@ -321,14 +339,56 @@ class PostgresDatabase(BaseClass):
         session.commit()
         session.close()
         return stickerset_owner_id
-
-    def define_stickerset_owner(self, user_id: int, chat_id: int) -> None:
-        """Adds user to the list of sticker set owners for the chat"""
+    
+    def get_chats_with_requested_stickerset_ownership(self, user_id: int) -> list[tuple[str, int]]:
+        """Gets list of ownerships requests for the user"""
         session = Session(self.engine)
-        session.add(StickersetOwner(user_id=user_id, chat_id=chat_id))
+        chat_set_names = (
+            session.query(StickerSetOwnerCandidate.chat_name, StickerSetOwnerCandidate.chat_id)
+                .distinct()
+                .filter(StickerSetOwnerCandidate.user_id == user_id)
+                .all()
+        )
+        session.commit()
+        session.close()
+        return chat_set_names
+    
+    def add_stickerset_owner_candidate(self, user_id: int, chat_id: int, chat_name: str) -> None:
+        """Adds user to the list of sticker set owner candidates for the chat"""
+        session = Session(self.engine)
+        session.add(StickerSetOwnerCandidate(user_id=user_id, chat_id=chat_id, chat_name=chat_name))
         session.commit()
         session.close()
         return
+
+    def assign_stickerset_owner(self, user_id: int, chat_id: int) -> None:
+        """Adds user to the list of sticker set owners for the chat"""
+        session = Session(self.engine)
+        try:
+            session.begin()
+            
+            defined_stickerset_owner = (
+                session.query(StickersetOwner)
+                    .filter(StickersetOwner.chat_id == chat_id)
+                    .one_or_none()
+            )
+            if defined_stickerset_owner:
+                session.commit()
+                return False
+            else:
+                session.add(StickersetOwner(user_id=user_id, chat_id=chat_id))
+                _ = (
+                    session.query(StickerSetOwnerCandidate)
+                        .filter(StickerSetOwnerCandidate.chat_id == chat_id)
+                        .delete()
+                )
+                session.commit()
+                return True
+        except Exception as e:
+            session.rollback()
+            raise e
+        finally:
+            session.close()
 
     def is_stickerset_owner_defined_for_chat(self, chat_id: int) -> bool:
         """Returns boolean whether there is any sticker set owner for this chat"""

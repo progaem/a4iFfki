@@ -57,7 +57,7 @@ class ImageS3Storage(BaseClass):
                 buffer.seek(0)
                 return buffer.read()
         except ClientError as e:
-            self.logger(str(e))
+            self.logger.info(str(e))
             error_code = e.response['Error']['Code']
             if error_code == '404':
                 raise FileNotFoundError(

@@ -19,14 +19,18 @@ Start the bot by invoking `/start` command. It will show the dynamic documentati
 ![](resources/demo/start_demo.png)
 
 ### Sticker Management
-To begin managing stickers, a user with a PREMIUM account must take ownership by sending `/own_stickers` in the chat. This user will manage both individual and group sticker sets.
+To begin managing stickers, a user must take ownership by sending `/own_stickers` in the chat. This user will manage both individual and group sticker sets.
 
-![](resources/demo/own_stickers_demo.png)
+![](resources/demo/assign_stickerset_ownership_group.png)
+
+After the bot asks stickerset owner candidate to send `/start` in DM messages, they should proceed with the command within 24 hours and will become a stickerset owner, unless someone would become one before them
+
+![](resources/demo/assign_stickerset_ownership_dm.png)
 
 **Important:** The owner should not alter these stickers outside of the bot commands, as it could interfere with the bot's tracking capabilities.
 
 ### Assigning Achievements
-- **New Achievements:** Reply to a chat message with the trigger phrase (e.g., `выдаю ачивку за [achievement description]` or `drop an achievement for [achievement description]`, here's[the link for full list of key phrases](resources/key.txt)). The bot will process the information and add appropriate stickers to both personal and group chat sticker sets.
+- **New Achievements:** Reply to a chat message with the trigger phrase (e.g., `выдаю ачивку за [achievement description]` or `drop an achievement for [achievement description]`, here's [the link for full list of key phrases](resources/key.txt)). The bot will process the information and add appropriate stickers to both personal and group chat sticker sets.
 ![](resources/demo/give_achievement_demo.png)
 ![](resources/demo/user_stickerset_demo.png)
 ![](resources/demo/chat_stickerset_demo.png)

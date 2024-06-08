@@ -5,6 +5,7 @@ src/message/__pycache__/
 src/sticker/__pycache__/
 src/storage/__pycache__/
 src/common/__pycache__/
+.DS_Store
 .vscode/
 .idea/
 .snapshots/
