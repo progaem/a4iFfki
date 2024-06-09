@@ -13,6 +13,13 @@ The **a4iFfki Achievements Bot** for Telegram is designed to recognize and celeb
 
 ## Getting Started
 
+### Bot rights
+In order to work, bot has to have `Allow groups` enabled in `@BotFather` and all group admin rights enabled as well:
+![](resources/demo/bot_father_rights.png)
+
+Additionally, the bot should be an admin in the group chat in order to have the access to all the messages and be able to answer to them:
+![](resources/demo/chat_rights.png)
+
 ### Bot start
 Start the bot by invoking `/start` command. It will show the dynamic documentation message that's also available by `/help` command.
 

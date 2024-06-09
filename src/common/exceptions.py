@@ -19,6 +19,11 @@ class StickerGeneratorError(ComponentError):
     def __init__(self, message, component_error_type, component_message):
         super().__init__(message, 'sticker-generator', component_error_type, component_message)
 
+class TelegramAPIError(ComponentError):
+    """Global TelegramAPI component exception"""
+    def __init__(self, message, component_error_type, component_message):
+       super().__init__(message, 'telegram-api', component_error_type, component_message)
+
 class GoogleAPIError(ComponentError):
     """Global GoogleAPI component exception"""
     def __init__(self, message, component_error_type, component_message):

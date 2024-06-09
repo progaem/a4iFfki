@@ -12,3 +12,4 @@ src/common/__pycache__/
 .output/
 s3/
 sql/
+logs/

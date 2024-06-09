@@ -11,9 +11,18 @@ services:
     volumes:
       - .:/app
       - ./resources:/app/resources
+      - ./logs:/app/logs
     depends_on:
       - postgres
       - s3
+    restart: always
+
+  cron:
+    build:
+      context: .
+      dockerfile: cron.Dockerfile
+    volumes:
+      - ./logs:/app/logs
     restart: always
 
   postgres:
