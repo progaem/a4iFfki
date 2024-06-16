@@ -189,7 +189,7 @@ class Bot(BaseClass):
                     InlineKeyboardMarkup(keyboard),
                 )
             
-            case "supergroup":
+            case _:
                 self.logger.info(f"[BOT] this start command appeared in the group chat")
                 context = await self.telegram.reply_text(
                     (

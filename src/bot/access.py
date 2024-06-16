@@ -34,7 +34,7 @@ def restricted_to_supergroups(func):
     @wraps(func)
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (_, chat_type, _, context) = bot.telegram.get_chat_info(update, context)
-        if not chat_type == "supergroup":
+        if chat_type != "supergroup" and chat_type != "group":
             logger.info(f"[ACCESS] the invocation was filtered because the chat type wasn't supergroup ({chat_type})")
             return
         return await func(bot, update, context, *args, **kwargs)
