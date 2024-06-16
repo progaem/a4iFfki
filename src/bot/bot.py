@@ -85,6 +85,7 @@ class Bot(BaseClass):
     @restricted_to_admins
     async def ban(self, update: Update, context: CallbackContext) -> None:
         """Bans a person from invoking a bot forever"""
+        self.logger.info("[BOT] ban command was invoked")
         (message_text, context) = self.telegram.get_message(update, context)
         if '@' in message_text:
             user_name = message_text.split('@')[1]
@@ -105,6 +106,7 @@ class Bot(BaseClass):
     @restricted_to_admins
     async def unban(self, update: Update, context: CallbackContext) -> None:
         """Unbans a person, lifting the restriction to invoke a bot"""
+        self.logger.info("[BOT] unban command was invoked")
         (message_text, context) = self.telegram.get_message(update, context)
         if '@' in message_text:
             user_name = message_text.split('@')[1]
@@ -127,10 +129,10 @@ class Bot(BaseClass):
     @restricted_to_stickerset_owners
     async def reset(self, update: Update, context: CallbackContext) -> None:
         """Resets the achievements progress in the chat and deletes stickerset from the user"""
-        self.logger.info("reset command was invoked")
-        
         (chat_id, _, _, context) = self.telegram.get_chat_info(update, context)
         (_, user_name, context) = self.telegram.get_from_user_info(update, context)
+
+        self.logger.info(f"[BOT] reset command was invoked in the {chat_id} chat by user {user_name}")
 
         sticker_sets_to_remove = self.database.all_stickerset_names(chat_id)
         for sticker_set_name in sticker_sets_to_remove:
@@ -163,8 +165,11 @@ class Bot(BaseClass):
         (chat_id, chat_type, _, context) = self.telegram.get_chat_info(update, context)
         (user_id, _, context) = self.telegram.get_from_user_info(update, context)
 
+        self.logger.info(f"[BOT] start command was invoked in the {chat_id} chat by user {user_id} (chat type is {chat_type})")
+
         match chat_type:
             case "private":
+                self.logger.info(f"[BOT] this start command appeared in the private chat")
                 chats = self.database.get_chats_with_requested_stickerset_ownership(user_id)
                 keyboard = [
                     [
@@ -185,6 +190,7 @@ class Bot(BaseClass):
                 )
             
             case "supergroup":
+                self.logger.info(f"[BOT] this start command appeared in the group chat")
                 context = await self.telegram.reply_text(
                     (
                         "Hi there! Thank you for using our bot!\nHere's the "
@@ -212,9 +218,12 @@ class Bot(BaseClass):
     @restricted_to_not_banned
     async def help_command(self, update: Update, context: CallbackContext) -> None:
         """Sends an interractive documentation message"""
-        
+
+        (user_id, _, context) = self.telegram.get_from_user_info(update, context)
         (chat_id, _, _, context) = self.telegram.get_chat_info(update, context)
-        
+
+        self.logger.info(f"[BOT] help command was invoked in the {chat_id} chat by user {user_id}")
+
         await self.__documentation_message(update, context)
         
         if not self.database.is_stickerset_owner_defined_for_chat(chat_id):
@@ -293,6 +302,9 @@ class Bot(BaseClass):
         """Makes a user invoking the command the owner of stickerset in the chat """
         (user_id, user_name, context) = self.telegram.get_from_user_info(update, context)
         (chat_id, _, chat_name, context) = self.telegram.get_chat_info(update, context)
+
+        self.logger.info(f"[BOT] own_stickers command was invoked in the {chat_id} chat by user {user_id}")
+
         self.database.add_stickerset_owner_candidate(user_id, chat_id, chat_name)
         context = await self.telegram.reply_text(
             (
@@ -311,6 +323,8 @@ class Bot(BaseClass):
         """Sends a link to the sticker set of the user and the sticker set of this chat"""
         (user_id, user_name, context) = self.telegram.get_from_user_info(update, context)
         (chat_id, _, chat_name, context) = self.telegram.get_chat_info(update, context)
+
+        self.logger.info(f"[BOT] show command was invoked in the {chat_id} chat by user {user_id}")
 
         if await self.warnings_processor.add_show_stickers_warning(update, context):
             return
@@ -340,7 +354,7 @@ class Bot(BaseClass):
         (from_user_id, from_user_name, context) = self.telegram.get_from_user_info(update, context)
         (to_user_id, to_user_name, context) = self.telegram.get_to_user_info(update, context)
         (chat_id, _, chat_name, context) = self.telegram.get_chat_info(update, context)
-        self.logger.info(f"{from_user_id} in {chat_id} mentioned key word replying to {to_user_id} message: {message_text}")
+        self.logger.info(f"[BOT] {from_user_id} in {chat_id} mentioned key word replying to {to_user_id} message: {message_text}")
 
         prompt = self.language_filter.detect_prompt(message_text)
         if not prompt:
@@ -416,6 +430,8 @@ class Bot(BaseClass):
         (_, from_user_name, context) = self.telegram.get_from_user_info(update, context)
         (to_user_id, to_user_name, context) = self.telegram.get_to_user_info(update, context)
         (chat_id, _, chat_name, context) = self.telegram.get_chat_info(update, context)
+
+        self.logger.info(f"[BOT] on_reply command was invoked in the {chat_id} chat by user {from_user_name}")
 
         (chat_sticker_set_info, session) = self.database.get_chat_sticker_set(chat_id)
         stickers_to_types = {s.file_unique_id: (s.type, s.index_in_sticker_set) for s in chat_sticker_set_info}

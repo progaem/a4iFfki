@@ -27,7 +27,7 @@ class BaseClass:
         # Enable logging
         logging.basicConfig(
             format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            level=logging.INFO,
+            level=logging.DEBUG,
             handlers=[handler]
         )
         # set higher logging level for httpx, httpcore and telegram.etx to filter out trash on DEBUG
@@ -37,6 +37,7 @@ class BaseClass:
         logging.getLogger("botocore").setLevel(logging.WARNING)
         logging.getLogger("s3transfer").setLevel(logging.WARNING)
         logging.getLogger("asyncio").setLevel(logging.WARNING)
+        logging.getLogger("numba").setLevel(logging.WARNING)
         self.logger = logging.getLogger(self.__class__.__name__)
 
         self.logger.info("Logger initialized")

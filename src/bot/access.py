@@ -11,6 +11,9 @@ from storage.postgres import PostgresDatabase
 
 ### HELPER COMMANDS, RESTRICTING VISBILITY TO METHODS ###
 
+base_instance = BaseClass()
+logger = base_instance.logger
+
 # change this id to your telegram user id
 LIST_OF_ADMINS = [249427415]
 
@@ -20,6 +23,7 @@ def restricted_to_private_messages(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (_, chat_type, _, context) = bot.telegram.get_chat_info(update, context)
         if not chat_type == "private":
+            logger.info(f"[ACCESS] the invocation was filtered because the chat type wasn't private ({chat_type})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -31,6 +35,7 @@ def restricted_to_supergroups(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (_, chat_type, _, context) = bot.telegram.get_chat_info(update, context)
         if not chat_type == "supergroup":
+            logger.info(f"[ACCESS] the invocation was filtered because the chat type wasn't supergroup ({chat_type})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -41,6 +46,7 @@ def restricted_to_admins(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (user_id, _, context) = bot.telegram.get_from_user_info(update, context)
         if user_id not in LIST_OF_ADMINS:
+            logger.info(f"[ACCESS] the invocation was filtered because the user wasn't admin ({user_id})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -51,6 +57,7 @@ def restricted_to_not_banned(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (_, user_name, context) = bot.telegram.get_from_user_info(update, context)
         if bot.database.is_banned(user_name):
+            logger.info(f"[ACCESS] the invocation was filtered because the user was banned ({user_name})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -64,6 +71,7 @@ def restricted_to_stickerset_owners(func):
 
         stickerset_owner = bot.database.get_stickerset_owner(chat_id)
         if not stickerset_owner or int(stickerset_owner) != user_id:
+            logger.info(f"[ACCESS] the invocation was filtered because the user wasn't stickerset owner ({user_id})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -74,6 +82,7 @@ def restricted_to_undefined_stickerset_chats(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (chat_id, _, _, context) = bot.telegram.get_chat_info(update, context)
         if bot.database.is_stickerset_owner_defined_for_chat(chat_id):
+            logger.info(f"[ACCESS] the invocation was filtered because the stickerset is defined for the chat ({chat_id})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -84,6 +93,7 @@ def restricted_to_defined_stickerset_chats(func):
     async def wrapped(bot, update: Update, context: CallbackContext, *args, **kwargs):
         (chat_id, _, _, context) = bot.telegram.get_chat_info(update, context)
         if not bot.database.is_stickerset_owner_defined_for_chat(chat_id):
+            logger.info(f"[ACCESS] the invocation was filtered because the stickerset is not defined for the chat ({chat_id})")
             return
         return await func(bot, update, context, *args, **kwargs)
     return wrapped
@@ -109,6 +119,8 @@ class WarningsProcessor(BaseClass):
         max_warnings_until_ban = 5
 
         (_, user_name, context) = self.telegram.get_from_user_info(update, context)
+        self.logger.info(f"[WARNING] user {user_name} is passing show stickers warning")
+
         warning_message = (
             f'@{user_name}, we\'ve noticed unusual activity from your account, currently there '
             f'is a limit of {max_show_stickers_interractions} daily /show executions per '
@@ -136,6 +148,7 @@ class WarningsProcessor(BaseClass):
         max_warnings_until_ban = 10
 
         (_, user_name, context) = self.telegram.get_from_user_info(update, context)
+        self.logger.info(f"[WARNING] user {user_name} is passing give achievement warning")
         warning_message = (
             f'Achievements are like rare jewels scattered throughout our lives, precious and '
             f'unique. It\'s crucial to cherish their scarcity and significance. That\'s why '
@@ -165,6 +178,7 @@ class WarningsProcessor(BaseClass):
         max_warnings_until_ban = 20
 
         (_, user_name, context) = self.telegram.get_from_user_info(update, context)
+        self.logger.info(f"[WARNING] user {user_name} is passing message format warning")
         warning_message = (
             f"Sorry, @{user_name}, your request couldn't be processed due to the length of "
             f"your message or the characters you used. Currently, the bot supports prompts "
@@ -196,6 +210,7 @@ class WarningsProcessor(BaseClass):
         max_warnings_until_ban = 20
 
         (_, user_name, context) = self.telegram.get_from_user_info(update, context)
+        self.logger.info(f"[WARNING] user {user_name} is passing inappropriate language warning")
         warning_message = (
             f'@{user_name}, this bot relies on external APIs that also perform profanity checks. '
             f'Frequent triggers of these checks could result in the suspension of the accounts '
