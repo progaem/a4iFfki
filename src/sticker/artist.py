@@ -83,12 +83,12 @@ class StickerArtist(BaseClass):
     async def draw_sticker_from_prompt(self, prompt: str) -> tuple[str, bytes]:
         """Draws a achievement sticker from prompt"""
         # Note: during local development you can change it to
-        image = self.__generate_sticker_of_random_color()
-        image = self.__add_text_on_sticker(image, f"picture about {prompt}", 0)
-        # image = await self.sticker_generator.generate_image(prompt)
-        # image_without_bg = remove(image)
-        # if is_image_suitable_for_achievement(image_without_bg):
-            # image = image_without_bg
+        # image = self.__generate_sticker_of_random_color()
+        # image = self.__add_text_on_sticker(image, f"picture about {prompt}", 0)
+        image = await self.sticker_generator.generate_image(prompt)
+        image_without_bg = remove(image)
+        if is_image_suitable_for_achievement(image_without_bg):
+            image = image_without_bg
         return self.sticker_file_manager.save_and_convert_to_bytes(image)
 
     def draw_sticker_from_profile_picture(self, image: bytes) -> tuple[str, bytes]:
