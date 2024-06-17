@@ -381,6 +381,12 @@ class Bot(BaseClass):
 
         self.database.save_prompt_message(chat_id, from_user_id, to_user_id, message_text, prompt)
 
+        # if sticker already exists we want to use it (not create another one)
+        sticker_file_id = await self.sticker_manager.find_existing_sticker(chat_id, prompt)
+        if sticker_file_id:
+            await self.on_sticker_reply(update, context, sticker_file_id)
+            return
+
         # fetch the sticker owner for this chat
         stickers_owner_id = self.database.get_stickerset_owner(chat_id)
 
@@ -424,9 +430,11 @@ class Bot(BaseClass):
     @restricted_to_supergroups
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
-    async def on_sticker_reply(self, update: Update, context: CallbackContext) -> None:
+    async def on_sticker_reply(self, update: Update, context: CallbackContext, sticker_file_id: str) -> None:
         """Gives an existing achievement to a person in reply message"""
-        (sticker_file_id, context) = self.telegram.get_sticker_file_id(update, context)
+        if not sticker_file_id:
+            (sticker_file_id, context) = self.telegram.get_sticker_file_id(update, context)
+
         (_, from_user_name, context) = self.telegram.get_from_user_info(update, context)
         (to_user_id, to_user_name, context) = self.telegram.get_to_user_info(update, context)
         (chat_id, _, chat_name, context) = self.telegram.get_chat_info(update, context)
