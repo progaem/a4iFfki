@@ -6,7 +6,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session, declarative_base, aliased
-from sqlalchemy import create_engine, Column, Integer, String, BigInteger, Text, DateTime, func
+from sqlalchemy import create_engine, Column, Integer, String, BigInteger, Text, DateTime, func, desc
 
 from common.common import BaseClass
 
@@ -20,7 +20,7 @@ class AchievementMessage(Base):
     invoking_user_id = Column(
         BigInteger,
         nullable=False,
-        comment="The user ID of a peron who invoked give achievement command")
+        comment="The user ID of a person who invoked give achievement command")
     target_user_id = Column(
         BigInteger,
         nullable=False,
@@ -254,6 +254,29 @@ class PostgresDatabase(BaseClass):
         session.close()
 
         return result
+
+    def get_sticker_by_prompt(self, chat_id: int, prompt: str) -> tuple[list[ChatSticker], Session]:
+        """Gets achievement sticker's file_unique_id by prompt text (engraving text) of the corresponding description sticker"""
+        session = Session(self.engine)
+        result = (
+            session.query(ChatSticker.index_in_sticker_set)
+                .filter(ChatSticker.chat_id == chat_id)
+                .filter(ChatSticker.engraving_text == prompt)
+                .order_by(desc(ChatSticker.times_achieved))
+                .limit(1)
+                .scalar()
+        )
+        if result:
+            result = (
+                session.query(ChatSticker.file_unique_id)
+                    .filter(ChatSticker.index_in_sticker_set == result - 5)
+                    .scalar()
+            )
+
+        session.commit()
+        session.close()
+
+        return result # returns null if there is no such sticker
 
     def create_chat_stickers_or_update_if_exist(self, chat_stickers_to_update: list[ChatSticker]):
         """Adds stickers to the list of chat stickers"""
