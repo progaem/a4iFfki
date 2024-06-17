@@ -210,6 +210,12 @@ class StickerManager(BaseClass):
 
         return sticker_set.stickers[last_achievement_index].file_id
 
+    async def find_existing_sticker(self, chat_id: int, prompt: str) -> str:
+        """Checks if a sticker already exists for a provided prompt. Returns file_unique_id if exists, null otherwise."""
+        file_unique_id = self.database.get_sticker_by_prompt(chat_id, prompt)
+        
+        return file_unique_id # file_unique_id would be null if there is no existing sticker for the prompt
+
     async def __upload_stickers_to_stickerset(
         self,
         stickers_owner: int,
