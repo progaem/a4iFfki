@@ -489,6 +489,12 @@ class Bot(BaseClass):
         update: Update, 
         context: CallbackContext
     ):
+        """
+        Gives an existing achievement to a person.
+        Used in 2 scenarios: 
+            - (1) in on_give method if there is existing sticker with the same prompt
+            - (2) in on_sticker_reply method if a user replies with an existing achievement sticker
+        """
         achievement_sticker = self.sticker_file_manager.get_bytes_from_path(achievement_sticker_info.file_path)
         user_description_sticker = self.sticker_artist.draw_description_sticker(description_sticker_info.engraving_text)
         # add and update stickers
