@@ -2,11 +2,11 @@
 This module handles all interractions with PostgreSQL database
 """
 import os
-from typing import Optional
+from typing import Optional, Union
 from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session, declarative_base, aliased
-from sqlalchemy import create_engine, Column, Integer, String, BigInteger, Text, DateTime, func
+from sqlalchemy import create_engine, Column, Integer, String, BigInteger, Text, DateTime, func, desc
 
 from common.common import BaseClass
 
@@ -20,7 +20,7 @@ class AchievementMessage(Base):
     invoking_user_id = Column(
         BigInteger,
         nullable=False,
-        comment="The user ID of a peron who invoked give achievement command")
+        comment="The user ID of a person who invoked give achievement command")
     target_user_id = Column(
         BigInteger,
         nullable=False,
@@ -254,6 +254,29 @@ class PostgresDatabase(BaseClass):
         session.close()
 
         return result
+
+    def get_stickers_by_prompt(self, chat_id: int, prompt: str) -> tuple:
+        """Gets achievement and description stickers by prompt text (engraving text) of the description sticker"""
+        session = Session(self.engine)
+        description_sticker_info = (
+            session.query(ChatSticker)
+                .filter(ChatSticker.chat_id == chat_id)
+                .filter(ChatSticker.engraving_text == prompt)
+                .order_by(desc(ChatSticker.times_achieved))
+                .limit(1)
+                .scalar()
+        )
+        if description_sticker_info:
+            achievement_sticker_info = (
+                session.query(ChatSticker)
+                    .filter(ChatSticker.index_in_sticker_set == description_sticker_info.index_in_sticker_set - 5)
+                    .scalar()
+            )
+            # We are forced to return session from here
+            # to allow manipulations over ChatSticker objects
+            return (achievement_sticker_info, description_sticker_info, session)
+        else:
+            return (None, None, session)
 
     def create_chat_stickers_or_update_if_exist(self, chat_stickers_to_update: list[ChatSticker]):
         """Adds stickers to the list of chat stickers"""
