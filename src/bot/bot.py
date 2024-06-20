@@ -23,7 +23,7 @@ from common.utils import masked_print
 from message.filter import LanguageFilter
 from storage.s3 import ImageS3Storage
 from sticker.artist import StickerArtist
-from storage.postgres import PostgresDatabase
+from storage.postgres import PostgresDatabase, ChatSticker
 
 
 class Bot(BaseClass):
@@ -382,10 +382,17 @@ class Bot(BaseClass):
         self.database.save_prompt_message(chat_id, from_user_id, to_user_id, message_text, prompt)
 
         # if sticker already exists we want to use it (not create another one)
-        sticker_file_id = await self.sticker_manager.find_existing_sticker(chat_id, prompt)
-        if sticker_file_id:
-            await self.on_sticker_reply(update, context, sticker_file_id)
+        achievement_sticker_info, description_sticker_info, session = await self.sticker_manager.find_existing_sticker(chat_id, prompt)
+        if achievement_sticker_info: # would be null if there is no such sticker
+            await self.__give_user_existing_achievement(
+                to_user_id, to_user_name, chat_id, from_user_name, chat_name, 
+                achievement_sticker_info, description_sticker_info, update, context
+            )
+            session.commit()
+            session.close()
             return
+        session.commit()
+        session.close()
 
         # fetch the sticker owner for this chat
         stickers_owner_id = self.database.get_stickerset_owner(chat_id)
@@ -430,11 +437,9 @@ class Bot(BaseClass):
     @restricted_to_supergroups
     @restricted_to_defined_stickerset_chats
     @restricted_to_not_banned
-    async def on_sticker_reply(self, update: Update, context: CallbackContext, sticker_file_id: str) -> None:
+    async def on_sticker_reply(self, update: Update, context: CallbackContext) -> None:
         """Gives an existing achievement to a person in reply message"""
-        if not sticker_file_id:
-            (sticker_file_id, context) = self.telegram.get_sticker_file_id(update, context)
-
+        (sticker_file_id, context) = self.telegram.get_sticker_file_id(update, context)
         (_, from_user_name, context) = self.telegram.get_from_user_info(update, context)
         (to_user_id, to_user_name, context) = self.telegram.get_to_user_info(update, context)
         (chat_id, _, chat_name, context) = self.telegram.get_chat_info(update, context)
@@ -458,36 +463,10 @@ class Bot(BaseClass):
                 achievement_sticker_info = index_based_lookup[sticker_index]
                 description_sticker_info = index_based_lookup[sticker_index + 5]
 
-                achievement_sticker = self.sticker_file_manager.get_bytes_from_path(achievement_sticker_info.file_path)
-                user_description_sticker = self.sticker_artist.draw_description_sticker(description_sticker_info.engraving_text)
-
-                # add and update stickers
-                achievement_user_sticker_file_id = await self.sticker_manager.add_user_stickers(
-                    description_sticker_info.sticker_set_owner_id,
-                    to_user_id,
-                    to_user_name,
-                    chat_id,
-                    chat_name,
-                    (achievement_sticker_info.file_path, achievement_sticker),
-                    user_description_sticker,
-                    description_sticker_info.engraving_text,
-                    update,
-                    context
+                await self.__give_user_existing_achievement(
+                    to_user_id, to_user_name, chat_id, from_user_name, chat_name, 
+                    achievement_sticker_info, description_sticker_info, update, context
                 )
-                achievement_description_chat_sticker_file_id = await self.sticker_manager.increase_counter_on_chat_description_sticker(
-                    description_sticker_info.sticker_set_owner_id,
-                    chat_id,
-                    description_sticker_info.file_id,
-                    description_sticker_info.sticker_set_name,
-                    sticker_index + 5,
-                    description_sticker_info.engraving_text,
-                    description_sticker_info.times_achieved,
-                    update,
-                    context
-                )
-
-                await self.__respond_with_achievement_stickers(update, context, from_user_name, to_user_name, chat_name, chat_id, description_sticker_info.engraving_text, achievement_user_sticker_file_id, achievement_description_chat_sticker_file_id)
-
             elif sticker_type == 'empty':
                 context = await self.telegram.reply_text(
                     "This achievement is not unblocked yet, so you can't give it to someone else!",
@@ -497,6 +476,46 @@ class Bot(BaseClass):
 
         session.commit()
         session.close()
+
+    async def __give_user_existing_achievement(
+        self,
+        to_user_id: int, 
+        to_user_name: str,
+        chat_id: int, 
+        from_user_name: str, 
+        chat_name: str, 
+        achievement_sticker_info: ChatSticker, 
+        description_sticker_info: ChatSticker, 
+        update: Update, 
+        context: CallbackContext
+    ):
+        achievement_sticker = self.sticker_file_manager.get_bytes_from_path(achievement_sticker_info.file_path)
+        user_description_sticker = self.sticker_artist.draw_description_sticker(description_sticker_info.engraving_text)
+        # add and update stickers
+        achievement_user_sticker_file_id = await self.sticker_manager.add_user_stickers(
+            description_sticker_info.sticker_set_owner_id,
+            to_user_id,
+            to_user_name,
+            chat_id,
+            chat_name,
+            (achievement_sticker_info.file_path, achievement_sticker),
+            user_description_sticker,
+            description_sticker_info.engraving_text,
+            update,
+            context
+        )
+        achievement_description_chat_sticker_file_id = await self.sticker_manager.increase_counter_on_chat_description_sticker(
+            description_sticker_info.sticker_set_owner_id,
+            chat_id,
+            description_sticker_info.file_id,
+            description_sticker_info.sticker_set_name,
+            description_sticker_info.index_in_sticker_set,
+            description_sticker_info.engraving_text,
+            description_sticker_info.times_achieved,
+            update,
+            context
+        )
+        await self.__respond_with_achievement_stickers(update, context, from_user_name, to_user_name, chat_name, chat_id, description_sticker_info.engraving_text, achievement_user_sticker_file_id, achievement_description_chat_sticker_file_id)
     
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Global error handler for all errors that appear in the application"""
